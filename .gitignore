@@ -1,0 +1,23 @@
+### Python ###
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+## Directory-based project format:
+.idea/
+
+### OSX ###
+.DS_Store
+.AppleDouble
+.LSOverride
+
+._*
+
+### Linux ###
+*~
+
+# Linux trash folder which might appear on any partition or disk
+.Trash-*

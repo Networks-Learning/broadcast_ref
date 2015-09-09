@@ -9,8 +9,8 @@ def fetch_user_tweet_times(user_id):
         return c
 
     cur = get_cursor()
-    query = """select tweettime from tweets where userid = %d""" % user_id
-    cur.execute(query)
+    query = """select tweettime from tweets where userid = %s"""
+    cur.execute(query, user_id)
     rows = cur.fetchall()
 
     tweets = models.TweetList()
@@ -32,15 +32,13 @@ def fetch_followees_tweet_times(user_id, excluded_person=0):
 
     cur = get_cursor()
 
-    query = """select tweettime from tweets where userid in (select idb from links where ida = %d and idb != %d)""" \
-            % (user_id, excluded_person)
+    query = """select tweettime from tweets where userid in (select idb from links where ida = %s and idb != %s)"""
 
-    cur.execute(query)
-    rows = cur.fetchall()
+    cur.execute(query, (user_id, excluded_person))
 
     tweets = models.TweetList()
 
-    for row in rows:
+    for row in cur:
         tweets.tweet_times.append(row['tweettime'])
 
     close_connection()

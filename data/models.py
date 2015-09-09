@@ -2,9 +2,9 @@ import numpy as np
 
 
 class Intensity:
-    def __init__(self, size):
-        self.rates = np.array(size)
-        self.time_intervals = np.array(size)
+    def __init__(self, size=0):
+        self.rates = np.zeros(size)
+        self.time_intervals = np.zeros(size)
 
 
 class TweetList:

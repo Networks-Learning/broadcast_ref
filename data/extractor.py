@@ -64,7 +64,7 @@ def fetch_followers_walls(user_id, conn=None):
     result = dict()
 
     for row in rows:
-        print('fetching ' + row['ida'])
+        print('fetching ' + str(row['ida']))
         result[row['ida']] = fetch_followees_tweet_times(row['ida'], user_id)
 
     return result

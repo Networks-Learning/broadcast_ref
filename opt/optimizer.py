@@ -2,6 +2,7 @@ from math import factorial
 import numpy as np
 from scipy.integrate import quad
 from cvxopt import matrix, solvers
+from data.models import Intensity
 
 
 def f(t, k, b, c, h):
@@ -79,7 +80,7 @@ def projection(q, P, G, h, A, C):
     return np.reshape(sol['x'], len(sol['x']))
 
 
-def optimize(util, grad, proj, x0, gamma=0.8, c=1.):
+def optimize_base(util, grad, proj, x0, gamma=0.8, c=1.):
     max_iterations = 100
     threshold = 0.0001
 
@@ -100,3 +101,24 @@ def optimize(util, grad, proj, x0, gamma=0.8, c=1.):
             break
 
     return x
+
+
+def optimize(lambda2, k, c, upper_bounds, x0=None):
+    foo_intensity = Intensity()
+
+    def _f(x):
+        foo_intensity.rates = x
+        return expected_f(foo_intensity, lambda2, k)
+
+    def grad(x):
+        foo_intensity.rates = x
+        return gradient(foo_intensity, lambda2, k)
+
+    proj_params = get_projector_parameters(c, upper_bounds)
+
+    def proj(x):
+        return projection(x, *proj_params)
+
+    x0 = [0.] * len(lambda2.rates) if x0 is None else x0
+
+    return optimize(_f, grad, proj, x0)

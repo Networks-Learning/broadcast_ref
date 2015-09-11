@@ -1,6 +1,4 @@
 import psycopg2
-import psycopg2.extras
-
 
 class DbConnection:
     def __init__(self):
@@ -14,7 +12,7 @@ class DbConnection:
 
     def get_cursor(self):
         try:
-            cur = self.con.cursor(cursor_factory=psycopg2.extras.DictCursor)
+            cur = self.con.cursor()
             return cur
         except psycopg2.DatabaseError, e:
             raise RuntimeError('Database Error %s' % e)

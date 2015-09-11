@@ -9,38 +9,36 @@ conn = DbConnection()
 cur = conn.get_cursor()
 
 max_tweet_id = 4382219473L
-chuck_size = 10000L
+chuck_size = 1000000L
 
 tweet_id = 21L
 
-d = {}
-
 while tweet_id <= max_tweet_id:
     query = """select userid, tweettime from tweets where tweetid between %s and %s"""
-    cur.execute(query, tweet_id, tweet_id + chuck_size)
+    cur.execute(query, (tweet_id, tweet_id + chuck_size - 1))
 
     print('[%d] query executed!' % tweet_id)
+    print('=' * 30)
 
     rows = cur.fetchmany()
-
-    print('pardon! pardon!')
+    d = {}
 
     while rows:
-        print('\n=' * 50)
         for row in rows:
             user_id = row[0]
             tweet_time = row[1]
-            if d[user_id]:
+            if user_id in d:
                 d[user_id].append(tweet_time)
             else:
                 d[user_id] = [tweet_time]
-            print('.', end='')
 
         rows = cur.fetchmany()
 
-print('dumping...')
+    print('dumping...')
+    f = open('tweet_times_%d.pkl' % tweet_id, 'wb')
+    pickle.dump(d, f)
+    f.close()
 
-pickle.dump(d, 'tweet_times_kire_khar_gaayid_maro.pkl')
+    tweet_id += chuck_size
 
-print('Au Revouir!')
 print('Danke, Tschuss!!')

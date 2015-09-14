@@ -2,27 +2,14 @@ from __future__ import print_function
 import pickle
 from db_connector import DbConnection
 
-print('Bonjour! Ready to take off!')
 
-conn = DbConnection()
-
-cur = conn.get_cursor()
-
-max_tweet_id = 4382219473L
-chuck_size = 1000000L
-
-tweet_id = 21L
-
-while tweet_id <= max_tweet_id:
+def extract_from_database(start_id, conn, size=1000000L):
+    cur = conn.get_cursor()
     query = """select userid, tweettime from tweets where tweetid between %s and %s"""
-    cur.execute(query, (tweet_id, tweet_id + chuck_size - 1))
-
-    print('[%d] query executed!' % tweet_id)
-    print('=' * 30)
-
+    cur.execute(query, (start_id, start_id + size - 1))
+    print('\t[%d] query executed!' % start_id)
     rows = cur.fetchmany()
     d = {}
-
     while rows:
         for row in rows:
             user_id = row[0]
@@ -33,12 +20,20 @@ while tweet_id <= max_tweet_id:
                 d[user_id] = [tweet_time]
 
         rows = cur.fetchmany()
+    return d
 
-    print('dumping...')
-    f = open('tweet_times_%d.pkl' % tweet_id, 'wb')
-    pickle.dump(d, f)
-    f.close()
+if __name__ == '__main__':
+    conn = DbConnection()
+    cur = conn.get_cursor()
 
-    tweet_id += chuck_size
+    max_tweet_id = 4382219473L
+    chuck_size = 1000000L
 
-print('Danke, Tschuss!!')
+    tweet_id = 21L
+
+    while tweet_id <= max_tweet_id:
+        d = extract_from_database(tweet_id, conn)
+        print('dumping...')
+        with open('parts/tweet_times_%d.pkl' % tweet_id, 'wb') as f:
+            pickle.dump(d, f)
+        tweet_id += chuck_size

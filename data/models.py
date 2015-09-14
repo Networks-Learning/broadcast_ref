@@ -19,19 +19,28 @@ class Intensity:
         :param rates: if given a list, it means rates are given in tweets per hour and
                       time slots are going to be 1 hour each
         """
-        if rates:
+        if rates is not None:
             self.intensity = [{"rate": rate, "length": 1.} for rate in rates]
         else:
             self.intensity = []
 
     def append(self, rate, length):
         self.intensity.append({"rate": rate, "length": length})
+        return self
 
     def size(self):
         return len(self.intensity)
 
     def total_time(self):
         return sum([item['length'] for item in self.intensity])
+
+    def total_rate(self):
+        return sum([item['rate'] for item in self.intensity])
+
+    def copy_lengths(self, other):
+        for i in range(self.size()):
+            self[i]['length'] = other[i]['length']
+        return self
 
     def get_as_vector(self):
         """

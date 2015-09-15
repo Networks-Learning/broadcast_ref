@@ -17,8 +17,8 @@ directory = '/local/moreka/broadcast-ref/parts'
 def add_dict_to_db_dict(loaded_d):
 	for k in loaded_d:
 	    for t in loaded_d[k]:
-	        dic['user_id'].append(k)
-	        dic['tweet_time'].append(long(t.strftime('%s')))
+	        db_dict['user_id'].append(k)
+	        db_dict['tweet_time'].append(long(t.strftime('%s')))
 
 
 def datetime_to_timestamp(datetime_list):
@@ -26,7 +26,7 @@ def datetime_to_timestamp(datetime_list):
 
 
 file_id_start = 0
-file_id_end = 100
+file_id_end = 4382
 total = file_id_end - file_id_start + 1
 progress = 0.
 remaining = 0.
@@ -41,7 +41,7 @@ for i in range(file_id_start, file_id_end + 1):
             print('\r[%.2f%%] loading pickle %s ... (%s)' % (progress, chunk, datetime.timedelta(seconds=remaining)), end='')
             sys.stdout.flush()
             loaded_dict = pickle.load(f)
-            print('\r[%.2f%%] updating global dict... (%s)' % (progress, datetime.timedelta(seconds=remaining)) + ' ' * 30, end='')
+            print('\r[%.2f%%] updating global dict... (%s)' % (progress, datetime.timedelta(seconds=remaining)) + ' ' * 50, end='')
             sys.stdout.flush()
             add_dict_to_db_dict(loaded_dict)
 
@@ -57,7 +57,14 @@ for i in range(file_id_start, file_id_end + 1):
     
     remaining = t_est * (100. - progress) * total / 100.
 
-df = pd.DataFrame(db_dict)
-store = pd.HDFStore('store.h5')
-store['tweets'] = df
-store.close()
+try:
+    df = pd.DataFrame(db_dict)
+    store = pd.HDFStore('store.h5')
+    store['tweets'] = df
+    store.close()
+except:
+    sys.stderr.write('Error in saving to hdf! Pickling instead...')
+    with open('pickled_all.pkl', 'wb') as f:
+        pickle.dump(db_dict, f)
+
+

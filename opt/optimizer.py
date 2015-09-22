@@ -158,7 +158,7 @@ def projection(q, P, G, h, A, C):
 
 
 def optimize_base(util, grad, proj, x0, threshold, gamma=0.9, c=1.):
-    max_iterations = 1000
+    max_iterations = 100
     x = x0
 
     for i in range(max_iterations):

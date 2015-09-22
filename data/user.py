@@ -138,4 +138,4 @@ class User:
             _max = max([oi[i]['rate'] / ti[i]['rate'] for i in range(oi.size()) if ti[i]['rate'] != 0.0])
             upper_bounds = [_max * ti[i]['rate'] for i in range(oi.size())]
 
-        return optimizer.optimize(ti, self.options['top_k'], budget, upper_bounds, 1e-6, pi=pi)
+        return optimizer.optimize(ti, self.options['top_k'], budget, upper_bounds, 1e-5, pi=pi)

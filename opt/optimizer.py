@@ -59,7 +59,7 @@ def expected_f(lambda1, lambda2, k, h0=None, pi=None):
     return e_f
 
 
-def gradient(lambda1, lambda2, k, h0=None):
+def gradient(lambda1, lambda2, k, h0=None, pi=None):
     """
     :param lambda1: need not to have valid time slot lengths
     :param lambda2: must have valid time slot lengths
@@ -77,15 +77,15 @@ def gradient(lambda1, lambda2, k, h0=None):
     for i in range(n):
         if lambda1[i]['rate'] >= epsilon:
             lambda1[i]['rate'] -= epsilon
-            f1 = expected_f(lambda1, lambda2, k, h0)
+            f1 = expected_f(lambda1, lambda2, k, h0, pi=pi)
             lambda1[i]['rate'] += 2. * epsilon
-            f2 = expected_f(lambda1, lambda2, k, h0)
+            f2 = expected_f(lambda1, lambda2, k, h0, pi=pi)
             g[i] = (f2 - f1) / (2. * epsilon)
             lambda1[i]['rate'] -= epsilon
         else:
-            f1 = expected_f(lambda1, lambda2, k, h0)
+            f1 = expected_f(lambda1, lambda2, k, h0, pi=pi)
             lambda1[i]['rate'] += epsilon
-            f2 = expected_f(lambda1, lambda2, k, h0)
+            f2 = expected_f(lambda1, lambda2, k, h0, pi=pi)
             g[i] = (f2 - f1) / epsilon
             lambda1[i]['rate'] -= epsilon
     return g
@@ -152,7 +152,7 @@ def optimize(lambda2, k, budget, upper_bounds, threshold=0.001, x0=None, pi=None
         return expected_f(Intensity(x), lambda2, k, pi=pi)
 
     def grad(x):
-        return gradient(Intensity(x), lambda2, k)
+        return gradient(Intensity(x), lambda2, k, pi=pi)
 
     proj_params = get_projector_parameters(budget, upper_bounds)
 

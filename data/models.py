@@ -91,7 +91,12 @@ class TweetList:
         return self.tweet_times[item]
 
     def append_to(self, times):
-        self.tweet_times += times
+        if type(times) is list:
+            self.tweet_times += times
+        elif type(times) is TweetList:
+            self.tweet_times += times.tweet_list
+        else:
+            raise TypeError('Unknown type %s: Cannot append to tweet list' % type(times))
         
     def sort(self):
         self.tweet_times.sort()

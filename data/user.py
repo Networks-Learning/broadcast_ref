@@ -10,14 +10,16 @@ class User:
     _wall_tweet_list = None
     _wall_intensity = None
     _followees = None
+    _followers = None
     _conn = None
 
     options = None
 
     def __init__(self, user_id, conn, **kwargs):
-        self._conn = None
+        self._conn = conn
         self._user_id = user_id
-
+        
+        self.options = {}
         self.options['period_length'] = 24 * 7
         self.options['time_slots'] = [1.] * (24 * 7)
         self.options['top_k'] = 15
@@ -26,6 +28,12 @@ class User:
 
         for k in kwargs:
             self.options[k] = kwargs[k]
+    
+    def __str__(self):
+        return str(self._user_id)
+    
+    def __repr__(self):
+        return self.__str__()
 
     def user_id(self):
         return self._user_id
@@ -34,8 +42,9 @@ class User:
         if self._tweet_list is not None:
             return self._tweet_list
 
-        with self._conn.get_cursor() as cur:
-            tweet_times = cur.execute('select tweet_time from tweets where user_id=?', (self._user_id,)).fetchall()
+        cur = self._conn.get_cursor('tweets')
+        tweet_times = cur.execute('select tweet_time from tweets where user_id=?', (self._user_id,)).fetchall()
+        cur.close()
 
         self._tweet_list = models.TweetList([t[0] for t in tweet_times])
         return self._tweet_list
@@ -64,8 +73,9 @@ class User:
 
         self._followees = []
 
-        with self._conn.get_cursor() as cur:
-            followees = cur.execute('select idb from links where ida=?', (self._user_id,)).fetchall()
+        cur = self._conn.get_cursor('links')
+        followees = cur.execute('select idb from links where ida=?', (self._user_id,)).fetchall()
+        cur.close()
 
         for followee in followees:
             followee_id = followee[0]
@@ -73,6 +83,23 @@ class User:
             self._followees.append(followee_user)
 
         return self._followees
+    
+    def followers(self):
+        if self._followers is not None:
+            return self._followers
+
+        self._followers = []
+
+        cur = self._conn.get_cursor('links')
+        followers = cur.execute('select ida from links where idb=?', (self._user_id,)).fetchall()
+        cur.close()
+
+        for follower in followers:
+            follower_id = follower[0]
+            follower_user = User(follower_id, self._conn, **self.options)
+            self._followers.append(follower_user)
+
+        return self._followers
 
     def wall_tweet_list(self, excluded_user_id=None):
         if self._wall_tweet_list is not None:
@@ -103,11 +130,12 @@ class User:
         oi = self.intensity().sub_intensity(start_hour, end_hour)
         ti = target.wall_intensity().sub_intensity(start_hour, end_hour)
         pi = target.connection_probability()[start_hour:end_hour]   # TODO: works only for time slots = [1.]
+        print 'pi: ', pi 
 
         if budget is None:
-            budget = sum([x['rate'] * x['length'] for x in self.intensity()])
+            budget = sum([x['rate'] * x['length'] for x in oi])
         if upper_bounds is None:
             _max = max([oi[i]['rate'] / ti[i]['rate'] for i in range(oi.size()) if ti[i]['rate'] != 0.0])
             upper_bounds = [_max * ti[i]['rate'] for i in range(oi.size())]
 
-        return optimizer.optimize(ti, self.options['top_k'], budget, upper_bounds, 1e-5, pi=pi)
+        return optimizer.optimize(ti, self.options['top_k'], budget, upper_bounds, 1e-6, pi=pi)

@@ -1,7 +1,7 @@
 from __future__ import division
 from math import factorial
 import numpy as np
-from scipy.integrate import quad
+from scipy.integrate import quad, trapz
 from cvxopt import matrix, solvers
 from data.models import Intensity
 
@@ -47,15 +47,54 @@ def expected_f(lambda1, lambda2, k, h0=None, pi=None):
     :param pi: probability of being online in each interval
     :return: expected time being on top-k
     """
+    return expected_f_trapz(lambda1, lambda2, k, h0, pi)
+
+
+def expected_f_trapz(lambda1, lambda2, k, h0=None, pi=None):
+    """
+    :param lambda1: need not to have valid time slot lengths
+    :param lambda2: must have valid time slot lengths
+    :type lambda1: Intensity
+    :type lambda2: Intensity
+    :param k: top-k
+    :param h0: initial value array at t=0
+    :param pi: probability of being online in each interval
+    :return: expected time being on top-k
+    """
     h0 = [0.] * k if h0 is None else h0
-    pi = [1.] * lambda2.size() if pi is None else pi
 
     e_f = 0
-    t = 0
+    sample_count = 11
     for i in range(lambda2.size()):
-        e_f += pi[i] * quad(f_single_valued, 0, lambda2[i]['length'], (k, lambda2[i]['rate'], lambda1[i]['rate'], h0))[0]
+        samples = np.linspace(0, lambda2[i]['length'], 10)
+        values = [f_single_valued(sample, k, lambda2[i]['rate'], lambda1[i]['rate'], h0) for sample in samples]
+        e_f += pi[i] * trapz(values, samples)
+        
         h0 = f(lambda2[i]['length'], k, lambda2[i]['rate'], lambda1[i]['rate'], h0)
-        t += lambda2[i]['length']
+    return e_f
+
+
+def expected_f_quad(lambda1, lambda2, k, h0=None, pi=None):
+    """
+    :param lambda1: need not to have valid time slot lengths
+    :param lambda2: must have valid time slot lengths
+    :type lambda1: Intensity
+    :type lambda2: Intensity
+    :param k: top-k
+    :param h0: initial value array at t=0
+    :param pi: probability of being online in each interval
+    :return: expected time being on top-k
+    """
+    h0 = [0.] * k if h0 is None else h0
+
+    e_f = 0
+    for i in range(lambda2.size()):
+        e_f += pi[i] * quad(f_single_valued, 
+                            0, lambda2[i]['length'], 
+                            (k, lambda2[i]['rate'], lambda1[i]['rate'], h0),
+                            epsabs=1e-3
+                           )[0]
+        h0 = f(lambda2[i]['length'], k, lambda2[i]['rate'], lambda1[i]['rate'], h0)
     return e_f
 
 
@@ -148,6 +187,12 @@ def optimize(lambda2, k, budget, upper_bounds, threshold=0.001, x0=None, pi=None
     :param k: top-k
     :param x0: start point
     """
+    if pi is None:
+        pi = [1.] * lambda2.size()
+    else:
+        s = sum(pi)
+        pi = [p * 24. / s for p in pi]
+    
     def _f(x):
         return expected_f(Intensity(x), lambda2, k, pi=pi)
 

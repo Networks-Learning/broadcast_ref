@@ -1,3 +1,4 @@
+from __future__ import division
 from math import factorial
 import numpy as np
 from scipy.integrate import quad
@@ -12,8 +13,12 @@ def f(t, k, b, c, h):
     :param b: lambda2 value during time interval
     :param c: lambda1 value during time interval
     :param h: initial values at t=0
-    :return: f(t)
+    :return: f(t) if b + c is not zero, otherwise returns h
     """
+    if b + c < 1e-10:
+        print 'here'
+        return h
+
     alpha = np.zeros((k, k))
     p = c / (b + c)
 
@@ -28,7 +33,7 @@ def f(t, k, b, c, h):
 
 
 def f_single_valued(t, k, b, c, h):
-    return f(t, k, b, c, h)[0]
+    return f(t, k, b, c, h)[k-1]
 
 
 def expected_f(lambda1, lambda2, k, h0=None):
@@ -111,14 +116,12 @@ def projection(q, P, G, h, A, C):
     return np.reshape(sol['x'], len(sol['x']))
 
 
-def optimize_base(util, grad, proj, x0, gamma=0.9, c=1.):
-    max_iterations = 100000
-    threshold = 0.01
-
+def optimize_base(util, grad, proj, x0, threshold, gamma=0.9, c=1.):
+    max_iterations = 1000
     x = x0
 
     for i in range(max_iterations):
-        if i % 10 is 0:
+        if i % 10 == 0:
             print('iter %d' % i)
             print(x)
         g = grad(x)
@@ -136,7 +139,7 @@ def optimize_base(util, grad, proj, x0, gamma=0.9, c=1.):
     return x
 
 
-def optimize(lambda2, k, budget, upper_bounds, x0=None):
+def optimize(lambda2, k, budget, upper_bounds, threshold=0.001, x0=None):
     """
     :param lambda2: other's intensities
     :type lambda2: Intensity
@@ -156,5 +159,11 @@ def optimize(lambda2, k, budget, upper_bounds, x0=None):
 
     x0 = [0.] * lambda2.size() if x0 is None else x0
 
-    opt_rates = optimize_base(_f, grad, proj, x0)
+    if sum(upper_bounds) <= budget:
+        opt_rates = Intensity()
+        for i in range(lambda2.size()):
+            opt_rates.append(upper_bounds[i], lambda2[i]['length'])
+        return opt_rates
+    
+    opt_rates = optimize_base(_f, grad, proj, x0, threshold)
     return Intensity(opt_rates).copy_lengths(lambda2)

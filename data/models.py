@@ -16,11 +16,15 @@ class Intensity:
 
     def __init__(self, rates=None):
         """
-        :param rates: if given a list, it means rates are given in tweets per hour and
-                      time slots are going to be 1 hour each
+        :param rates: if given a list of floats, it means rates are given in tweets per hour and
+                      time slots are going to be 1 hour each,
+                      can be also a sub-intensity
         """
         if rates is not None:
-            self.intensity = [{"rate": rate, "length": 1.} for rate in rates]
+            if type(rates[0]) is not dict:
+                self.intensity = [{"rate": rate, "length": 1.} for rate in rates]
+            else:
+                self.intensity = rates
         else:
             self.intensity = []
 
@@ -48,6 +52,22 @@ class Intensity:
         """
         return (np.array([item['rate'] for item in self.intensity]),
                 np.array([item['length'] for item in self.intensity]))
+    
+    def sub_intensity(self, start, end):
+        """
+        :param start: defines the starting hour
+        :param end: defines the ending our
+        :return: all intervals between start and end
+        """
+        t, i = 0.0, 0
+        while t < start:
+            t += self[i]['length']
+            i += 1
+        j = i
+        while t < end:
+            t += self[j]['length']
+            j += 1
+        return Intensity(self[i:j])
 
     def __getitem__(self, item):
         return self.intensity[item]
@@ -72,6 +92,19 @@ class TweetList:
 
     def append_to(self, times):
         self.tweet_times += times
+        
+    def sort(self):
+        self.tweet_times.sort()
+        
+    def sublist(self, start_time, end_time):
+        start = long(start_time.strftime('%s'))
+        end = long(end_time.strftime('%s'))
+        lst = []
+        for t in self.tweet_times:
+            if t <= end and t >= start:
+                lst.append(t)
+        lst.sort()
+        return lst
 
     def get_periodic_intensity(self, period_length=24 * 7, time_slots=None):
         """

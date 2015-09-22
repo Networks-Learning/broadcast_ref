@@ -29,13 +29,14 @@ def generate_poisson_process(rate, time_start, time_end):
     return points
 
 
-def generate_piecewise_constant_poisson_process(intensity):
+def generate_piecewise_constant_poisson_process(intensity, start_time=0):
     """
+    :param start_time: starting time in UNIX format
     :type intensity: Intensity
     :return: a list
     """
     process = []
-    end_of_last_slot = 0
+    end_of_last_slot = start_time
 
     for item in intensity.intensity:
         process += generate_poisson_process(item['rate'],

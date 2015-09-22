@@ -101,7 +101,7 @@ class TweetList:
         end = long(end_time.strftime('%s'))
         lst = []
         for t in self.tweet_times:
-            if t <= end and t >= start:
+            if end >= t >= start:
                 lst.append(t)
         lst.sort()
         return lst
@@ -134,6 +134,35 @@ class TweetList:
 
         return intensity
 
+    def get_connection_probability(self, period_length=24 * 7, time_slots=None):
+        """
+        :param period_length: in hours, default is one week (must be an integer if time_slots is None)
+        :param time_slots: if not provided, default is equal time slots of one hour
+        :return: probability of being online in each time slot during period length
+        """
+
+        if time_slots is None:
+            time_slots = [1.] * period_length
+
+        assert sum(time_slots) == period_length
+
+        bags = [None] * len(time_slots)
+        for i in range(len(time_slots)):
+            bags[i] = set()
+
+        max_period_id, min_period_id = 0, 100000
+
+        for time in self.tweet_times:
+            period_id = int(time / period_length / 3600)
+            bags[find_interval(time, period_length, time_slots)].add(period_id)
+
+            max_period_id = period_id if max_period_id < period_id else max_period_id
+            min_period_id = period_id if min_period_id > period_id else min_period_id
+
+        period_count = max_period_id - min_period_id + 1
+
+        return [len(bag) / period_count for bag in bags]
+
 
 def find_interval(tweet_time, period_length, time_slots):
     time_in_period = tweet_time % (period_length * 3600)
@@ -145,7 +174,9 @@ def find_interval(tweet_time, period_length, time_slots):
 
 
 def main():
-    pass
+    times = np.array([0.8, 0.9, 3.1, 5.2, 7.8, 8.3, 11.4, 13.2, 15.6, 19.2, 21.3]) * 3600.
+    list = TweetList(times)
+    print list.get_connection_probability(8)
 
 if __name__ == '__main__':
     main()

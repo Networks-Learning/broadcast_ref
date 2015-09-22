@@ -36,7 +36,7 @@ def f_single_valued(t, k, b, c, h):
     return f(t, k, b, c, h)[k-1]
 
 
-def expected_f(lambda1, lambda2, k, h0=None):
+def expected_f(lambda1, lambda2, k, h0=None, pi=None):
     """
     :param lambda1: need not to have valid time slot lengths
     :param lambda2: must have valid time slot lengths
@@ -44,14 +44,16 @@ def expected_f(lambda1, lambda2, k, h0=None):
     :type lambda2: Intensity
     :param k: top-k
     :param h0: initial value array at t=0
+    :param pi: probability of being online in each interval
     :return: expected time being on top-k
     """
     h0 = [0.] * k if h0 is None else h0
+    pi = [1.] * lambda2.size() if pi is None else pi
 
     e_f = 0
     t = 0
     for i in range(lambda2.size()):
-        e_f += quad(f_single_valued, 0, lambda2[i]['length'], (k, lambda2[i]['rate'], lambda1[i]['rate'], h0))[0]
+        e_f += pi[i] * quad(f_single_valued, 0, lambda2[i]['length'], (k, lambda2[i]['rate'], lambda1[i]['rate'], h0))[0]
         h0 = f(lambda2[i]['length'], k, lambda2[i]['rate'], lambda1[i]['rate'], h0)
         t += lambda2[i]['length']
     return e_f
@@ -139,7 +141,7 @@ def optimize_base(util, grad, proj, x0, threshold, gamma=0.9, c=1.):
     return x
 
 
-def optimize(lambda2, k, budget, upper_bounds, threshold=0.001, x0=None):
+def optimize(lambda2, k, budget, upper_bounds, threshold=0.001, x0=None, pi=None):
     """
     :param lambda2: other's intensities
     :type lambda2: Intensity
@@ -147,7 +149,7 @@ def optimize(lambda2, k, budget, upper_bounds, threshold=0.001, x0=None):
     :param x0: start point
     """
     def _f(x):
-        return expected_f(Intensity(x), lambda2, k)
+        return expected_f(Intensity(x), lambda2, k, pi=pi)
 
     def grad(x):
         return gradient(Intensity(x), lambda2, k)

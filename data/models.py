@@ -1,4 +1,5 @@
 from __future__ import division
+import datetime
 import numpy as np
 from math import ceil
 
@@ -111,13 +112,19 @@ class TweetList:
         lst.sort()
         return lst
 
-    def get_periodic_intensity(self, period_length=24 * 7, time_slots=None):
+    def get_periodic_intensity(self, period_length=24 * 7, time_slots=0, start_time=None, end_time=None):
         """
         :param period_length: in hours, default is one week (must be an integer if time_slots is None)
         :param time_slots: if not provided, default is equal time slots of one hour
+        :param start_time: The start of time that we want to learn the intensity
+        :param end_time: The end of time that we want to learn the intensity
         :return: intensity in the period length
         """
 
+        if start_time is None:
+                    start_time = datetime.datetime.fromtimestamp(0)
+        if end_time is None:
+            end_time = datetime.datetime.fromtimestamp(max(self.tweet_times))
         if time_slots is None:
             time_slots = [1.] * period_length
 
@@ -127,8 +134,9 @@ class TweetList:
         total_number_of_periods = ceil(total_time / period_length)
 
         tweets_per_slot = [0] * len(time_slots)
+        time_window = self.sublist(start_time, end_time)
 
-        for time in self.tweet_times:
+        for time in time_window:
             tweets_per_slot[find_interval(time, period_length, time_slots)] += 1
 
         intensity = Intensity()

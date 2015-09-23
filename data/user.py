@@ -61,6 +61,10 @@ class User:
 
         return self._intensity
 
+    def partially_learned_intensity(self, start_time, end_time):
+        return self.tweet_list().get_periodic_intensity(self.options['period_length'], self.options['time_slots'],
+                                                        start_time, end_time)
+
     def connection_probability(self):
         if self._probability is not None:
             return self._probability

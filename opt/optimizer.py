@@ -1,5 +1,5 @@
 from __future__ import division
-from math import factorial
+from math import factorial, exp
 import numpy as np
 from scipy.integrate import quad, trapz
 from cvxopt import matrix, solvers
@@ -16,7 +16,6 @@ def f(t, k, b, c, h):
     :return: f(t) if b + c is not zero, otherwise returns h
     """
     if b + c < 1e-10:
-        print 'here'
         return h
 
     alpha = np.zeros((k, k))
@@ -33,7 +32,7 @@ def f(t, k, b, c, h):
 
 
 def f_single_valued(t, k, b, c, h):
-    return f(t, k, b, c, h)[k-1]
+    return f(t, k, b, c, h)[k - 1]
 
 
 def expected_f(lambda1, lambda2, k, h0=None, pi=None):
@@ -69,7 +68,7 @@ def expected_f_trapz(lambda1, lambda2, k, h0=None, pi=None):
         samples = np.linspace(0, lambda2[i]['length'], 10)
         values = [f_single_valued(sample, k, lambda2[i]['rate'], lambda1[i]['rate'], h0) for sample in samples]
         e_f += pi[i] * trapz(values, samples)
-        
+
         h0 = f(lambda2[i]['length'], k, lambda2[i]['rate'], lambda1[i]['rate'], h0)
     return e_f
 
@@ -89,11 +88,11 @@ def expected_f_quad(lambda1, lambda2, k, h0=None, pi=None):
 
     e_f = 0
     for i in range(lambda2.size()):
-        e_f += pi[i] * quad(f_single_valued, 
-                            0, lambda2[i]['length'], 
+        e_f += pi[i] * quad(f_single_valued,
+                            0, lambda2[i]['length'],
                             (k, lambda2[i]['rate'], lambda1[i]['rate'], h0),
                             epsabs=1e-3
-                           )[0]
+                            )[0]
         h0 = f(lambda2[i]['length'], k, lambda2[i]['rate'], lambda1[i]['rate'], h0)
     return e_f
 
@@ -170,14 +169,83 @@ def optimize_base(util, grad, proj, x0, threshold, gamma=0.9, c=1.):
         s = gamma
         e_f = util(x)
         while util(x + s * d) - e_f > c * gamma * np.dot(np.transpose(g), d) and \
-                np.linalg.norm(s * d) >= threshold ** 2:
+                        np.linalg.norm(s * d) >= threshold ** 2:
             s *= gamma
 
         x += s * d
         if np.linalg.norm(s * d) < threshold ** 2:
             break
+            # TODO: if change is less than some threshold, stop
 
     return x
+
+
+def expected_f_top_one(lambda1, lambda2, pi):
+    M = lambda1.size()
+    e_f = 0
+    h = 0
+    for m in range(M):
+        bm = lambda2[m]['rate']
+        cm = lambda1[m]['rate']
+        dt = lambda2[m]['length']
+
+        if bm + cm < 1e-10:
+            e_f += h * dt
+        else:
+            p = cm / (bm + cm)
+            e_f += pi[m] * ((h - p) * (1. - exp(-dt * (bm + cm))) / (bm + cm) + p * dt)
+            h = f(dt, 1, bm, cm, h)
+
+    return e_f
+
+
+def hi_factory(lambda1, lambda2):
+    M = lambda1.size()
+    h = np.zeros(M+1)
+    dh_dc = np.zeros((M, M))
+    q = np.zeros(M)
+
+    h[-1] = 0
+    for m in range(M):
+        bm = lambda2[m]['rate']
+        cm = lambda1[m]['rate']
+        dt = lambda2[m]['length']
+        q[m] = exp(-dt * (bm + cm))
+        h[m] = f(dt, 1, bm, cm, h[m-1])
+
+    for m in range(M):
+        bm = lambda2[m]['rate']
+        cm = lambda1[m]['rate']
+        dt = lambda2[m]['length']
+
+        dh_dc[m, m] = (1. - q[m]) * bm / (bm + cm) ** 2 - (h[m-1] - cm / (bm + cm)) * q[m] * dt
+
+        for j in range(m + 1, M):
+            dh_dc[j, m] = q[j] * dh_dc[j - 1, m]
+
+    return h, dh_dc
+
+
+def gradient_top_one(lambda1, lambda2, pi):
+    M = lambda1.size()
+    grad = np.zeros(M)
+    h, dh_dc = hi_factory(lambda1, lambda2)
+
+    for k in range(M):
+        bk = lambda2[k]['rate']
+        ck = lambda1[k]['rate']
+        dtk = lambda2[k]['length']
+
+        grad[k] += (-dh_dc[k, k] * (bk + ck) - h[k-1] + h[k] + bk * dtk) / (bk + ck) ** 2
+
+        for m in range(k + 1, M):
+            bm = lambda2[m]['rate']
+            cm = lambda1[m]['rate']
+            grad[k] += (dh_dc[m, k] - dh_dc[m-1, k]) / (bm + cm)
+
+        grad[k] *= pi[k]
+
+    return grad
 
 
 def optimize(lambda2, k, budget, upper_bounds, threshold=0.001, x0=None, pi=None):
@@ -192,12 +260,14 @@ def optimize(lambda2, k, budget, upper_bounds, threshold=0.001, x0=None, pi=None
     else:
         s = sum(pi)
         pi = [p * 24. / s for p in pi]
-    
+
     def _f(x):
-        return expected_f(Intensity(x), lambda2, k, pi=pi)
+        # return expected_f(Intensity(x), lambda2, k, pi=pi)
+        return expected_f_top_one(Intensity(x), lambda2, pi=pi)
 
     def grad(x):
-        return gradient(Intensity(x), lambda2, k, pi=pi)
+        # return gradient(Intensity(x), lambda2, k, pi=pi)
+        return gradient_top_one(Intensity(x), lambda2, pi=pi)
 
     proj_params = get_projector_parameters(budget, upper_bounds)
 
@@ -211,6 +281,6 @@ def optimize(lambda2, k, budget, upper_bounds, threshold=0.001, x0=None, pi=None
         for i in range(lambda2.size()):
             opt_rates.append(upper_bounds[i], lambda2[i]['length'])
         return opt_rates
-    
+
     opt_rates = optimize_base(_f, grad, proj, x0, threshold)
     return Intensity(opt_rates).copy_lengths(lambda2)

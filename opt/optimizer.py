@@ -157,7 +157,7 @@ def projection(q, P, G, h, A, C):
 
 
 def optimize_base(util, grad, proj, x0, threshold, gamma=0.9, c=1.):
-    max_iterations = 100
+    max_iterations = 1000
     x = x0
 
     for i in range(max_iterations):
@@ -169,14 +169,12 @@ def optimize_base(util, grad, proj, x0, threshold, gamma=0.9, c=1.):
         s = gamma
         e_f = util(x)
         while util(x + s * d) - e_f > c * gamma * np.dot(np.transpose(g), d) and \
-                        np.linalg.norm(s * d) >= threshold ** 2:
+                        np.linalg.norm(s * d) >= threshold:
             s *= gamma
 
         x += s * d
-        if np.linalg.norm(s * d) < threshold ** 2:
+        if np.linalg.norm(s * d) < threshold:
             break
-            # TODO: if change is less than some threshold, stop
-
     return x
 
 
@@ -194,7 +192,7 @@ def expected_f_top_one(lambda1, lambda2, pi):
         else:
             p = cm / (bm + cm)
             e_f += pi[m] * ((h - p) * (1. - exp(-dt * (bm + cm))) / (bm + cm) + p * dt)
-            h = f(dt, 1, bm, cm, h)
+            h = f(dt, 1, bm, cm, [h])
 
     return e_f
 
@@ -211,7 +209,7 @@ def hi_factory(lambda1, lambda2):
         cm = lambda1[m]['rate']
         dt = lambda2[m]['length']
         q[m] = exp(-dt * (bm + cm))
-        h[m] = f(dt, 1, bm, cm, h[m-1])
+        h[m] = f(dt, 1, bm, cm, [h[m-1]])
 
     for m in range(M):
         bm = lambda2[m]['rate']
@@ -262,12 +260,12 @@ def optimize(lambda2, k, budget, upper_bounds, threshold=0.001, x0=None, pi=None
         pi = [p * 24. / s for p in pi]
 
     def _f(x):
-        # return expected_f(Intensity(x), lambda2, k, pi=pi)
-        return expected_f_top_one(Intensity(x), lambda2, pi=pi)
+        return expected_f(Intensity(x), lambda2, k, pi=pi)
+        # return expected_f_top_one(Intensity(x), lambda2, pi=pi)
 
     def grad(x):
-        # return gradient(Intensity(x), lambda2, k, pi=pi)
-        return gradient_top_one(Intensity(x), lambda2, pi=pi)
+        return gradient(Intensity(x), lambda2, k, pi=pi)
+        # return gradient_top_one(Intensity(x), lambda2, pi=pi)
 
     proj_params = get_projector_parameters(budget, upper_bounds)
 

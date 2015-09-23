@@ -1,5 +1,8 @@
+from __future__ import division
 from data import models
-from opt import optimizer
+from data.models import Intensity
+from opt import optimizer, utils
+import numpy as np
 
 
 class User:
@@ -11,15 +14,15 @@ class User:
     _wall_intensity = None
     _followees = None
     _followers = None
+    _followers_weights = {}
     _conn = None
 
-    options = None
+    options = {}
 
     def __init__(self, user_id, conn, **kwargs):
         self._conn = conn
         self._user_id = user_id
-        
-        self.options = {}
+
         self.options['period_length'] = 24 * 7
         self.options['time_slots'] = [1.] * (24 * 7)
         self.options['top_k'] = 15
@@ -28,10 +31,10 @@ class User:
 
         for k in kwargs:
             self.options[k] = kwargs[k]
-    
+
     def __str__(self):
         return str(self._user_id)
-    
+
     def __repr__(self):
         return self.__str__()
 
@@ -83,7 +86,7 @@ class User:
             self._followees.append(followee_user)
 
         return self._followees
-    
+
     def followers(self):
         if self._followers is not None:
             return self._followers
@@ -94,10 +97,13 @@ class User:
         followers = cur.execute('select ida from links where idb=?', (self._user_id,)).fetchall()
         cur.close()
 
+        follower_count = len(followers)
+
         for follower in followers:
             follower_id = follower[0]
             follower_user = User(follower_id, self._conn, **self.options)
             self._followers.append(follower_user)
+            self._followers_weights[follower_user] = 1. / follower_count
 
         return self._followers
 
@@ -126,16 +132,40 @@ class User:
 
         return self._wall_intensity
 
-    def optimum_intensity(self, target, budget=None, upper_bounds=None, start_hour=0, end_hour=24):
-        oi = self.intensity().sub_intensity(start_hour, end_hour)
-        ti = target.wall_intensity().sub_intensity(start_hour, end_hour)
-        pi = target.connection_probability()[start_hour:end_hour]   # TODO: works only for time slots = [1.]
-        print 'pi: ', pi 
+    def optimize(self, budget=None, upper_bounds=None, start_hour=0, end_hour=24,
+                 util=utils.weighted_top_one, util_gradient=utils.weighted_top_one_grad):
 
+        oi = self.intensity().sub_intensity(start_hour, end_hour)
         if budget is None:
             budget = sum([x['rate'] * x['length'] for x in oi])
-        if upper_bounds is None:
-            _max = max([oi[i]['rate'] / ti[i]['rate'] for i in range(oi.size()) if ti[i]['rate'] != 0.0])
-            upper_bounds = [_max * ti[i]['rate'] for i in range(oi.size())]
 
-        return optimizer.optimize(ti, self.options['top_k'], budget, upper_bounds, 1e-5, pi=pi)
+        if upper_bounds is None:
+            upper_bounds = np.zeros(oi.size())
+            for target in self.followers():
+                ti = target.wall_intensity().sub_intensity(start_hour, end_hour)
+                _max = max([oi[i]['rate'] / ti[i]['rate'] for i in range(oi.size()) if ti[i]['rate'] != 0.0])
+                upper_bounds += self._followers_weights[target] * _max * \
+                                np.array([ti[i]['rate'] for i in range(oi.size())])
+
+        followers_intensities = [
+            target.intensity().sub_intensity(start_hour, end_hour)
+            for target in self.followers()
+        ]
+
+        followers_weights = [
+            self._followers_weights[target]
+            for target in self.followers()
+        ]
+
+        followers_conn_prob = [
+            target.connection_probability()[start_hour:end_hour]
+            for target in self.followers()
+        ]
+
+        def _util(x):
+            return util(Intensity(x), followers_intensities, followers_conn_prob, followers_weights)
+
+        def _util_grad(x):
+            return util_gradient(Intensity(x), followers_intensities, followers_conn_prob, followers_weights)
+
+        return optimizer.optimize(_util, _util_grad, budget, upper_bounds, threshold=0.005)

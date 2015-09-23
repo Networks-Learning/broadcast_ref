@@ -107,9 +107,27 @@ class User:
             follower_id = follower[0]
             follower_user = User(follower_id, self._conn, **self.options)
             self._followers.append(follower_user)
-            self._followers_weights[follower_user] = 1. / follower_count
 
         return self._followers
+
+    def set_follower_weight(self, follower, weight):
+        if self._followers_weights is None:
+            self.followers_weights()
+
+        if isinstance(follower, User):
+            self._followers_weights[follower.user_id()] = weight
+        else:
+            self._followers_weights[follower] = weight
+
+    def followers_weights(self):
+        if self._followers_weights is not None:
+            return self._followers_weights
+
+        follower_count = len(self.followers())
+        for follower in self.followers():
+            self._followers_weights[follower.user_id()] = 1. / follower_count
+
+        return self._followers_weights
 
     def wall_tweet_list(self, excluded_user_id=None):
         if self._wall_tweet_list is not None:
@@ -148,7 +166,7 @@ class User:
             for target in self.followers():
                 ti = target.wall_intensity().sub_intensity(start_hour, end_hour)
                 _max = max([oi[i]['rate'] / ti[i]['rate'] for i in range(oi.size()) if ti[i]['rate'] != 0.0])
-                upper_bounds += self._followers_weights[target] * _max * \
+                upper_bounds += self.followers_weights()[target] * _max * \
                                 np.array([ti[i]['rate'] for i in range(oi.size())])
 
         followers_intensities = [
@@ -157,7 +175,7 @@ class User:
         ]
 
         followers_weights = [
-            self._followers_weights[target]
+            self.followers_weights()[target]
             for target in self.followers()
         ]
 

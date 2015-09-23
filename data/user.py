@@ -45,7 +45,7 @@ class User:
         if self._tweet_list is not None:
             return self._tweet_list
 
-        cur = self._conn.get_cursor('tweets')
+        cur = self._conn.get_cursor()
         tweet_times = cur.execute('select tweet_time from tweets where user_id=?', (self._user_id,)).fetchall()
         cur.close()
 
@@ -80,8 +80,8 @@ class User:
 
         self._followees = []
 
-        cur = self._conn.get_cursor('links')
-        followees = cur.execute('select idb from links where ida=?', (self._user_id,)).fetchall()
+        cur = self._conn.get_cursor()
+        followees = cur.execute('select idb from li.links where ida=?', (self._user_id,)).fetchall()
         cur.close()
 
         for followee in followees:
@@ -97,8 +97,8 @@ class User:
 
         self._followers = []
 
-        cur = self._conn.get_cursor('links')
-        followers = cur.execute('select ida from links where idb=?', (self._user_id,)).fetchall()
+        cur = self._conn.get_cursor()
+        followers = cur.execute('select ida from li.links where idb=?', (self._user_id,)).fetchall()
         cur.close()
 
         follower_count = len(followers)
@@ -132,17 +132,11 @@ class User:
     def wall_tweet_list(self, excluded_user_id=None):
         if self._wall_tweet_list is not None:
             return self._wall_tweet_list
-
-        self._wall_tweet_list = models.TweetList()
-
-        followees = self.followees()
-
-        for followee in followees:
-            if followee.user_id() == excluded_user_id:
-                continue
-
-            self._wall_tweet_list.append_to(followee.tweet_list())
-
+        print 'q..'
+        tweets = cur.execute(
+            '''SELECT tweet_time FROM tweets WHERE user_id IN (SELECT idb FROM li.links WHERE ida=?);''', self.user_id()).fetchall()
+        print 'eq..'
+        self._wall_tweet_list = models.TweetList([tweet[0] for tweet in tweets])
         return self._wall_tweet_list
 
     def wall_intensity(self, excluded_user_id=None):

@@ -140,7 +140,7 @@ def expected_f_top_one(lambda1, lambda2, pi):
         else:
             p = cm / (bm + cm)
             e_f += pi[m] * ((h - p) * (1. - exp(-dt * (bm + cm))) / (bm + cm) + p * dt)
-            h = f(dt, 1, bm, cm, [h])
+            h = f(dt, 1, bm, cm, [h])[0]
 
     return e_f
 
@@ -157,14 +157,17 @@ def hi_factory(lambda1, lambda2):
         cm = lambda1[m]['rate']
         dt = lambda2[m]['length']
         q[m] = exp(-dt * (bm + cm))
-        h[m] = f(dt, 1, bm, cm, [h[m-1]])
+        h[m] = f(dt, 1, bm, cm, [h[m-1]])[0]
 
     for m in range(M):
         bm = lambda2[m]['rate']
         cm = lambda1[m]['rate']
         dt = lambda2[m]['length']
-
-        dh_dc[m, m] = (1. - q[m]) * bm / (bm + cm) ** 2 - (h[m-1] - cm / (bm + cm)) * q[m] * dt
+        
+        if bm + cm < 1e-10:
+             dh_dc[m, m] = dt * (1 - h[m-1])
+        else:
+            dh_dc[m, m] = (1. - q[m]) * bm / (bm + cm) ** 2 - (h[m-1] - cm / (bm + cm)) * q[m] * dt
 
         for j in range(m + 1, M):
             dh_dc[j, m] = q[j] * dh_dc[j - 1, m]
@@ -182,12 +185,20 @@ def gradient_top_one(lambda1, lambda2, pi):
         ck = lambda1[k]['rate']
         dtk = lambda2[k]['length']
 
-        grad[k] += (-dh_dc[k, k] * (bk + ck) - h[k-1] + h[k] + bk * dtk) / (bk + ck) ** 2
+        if bk + ck < 1e-10:
+            grad[k] += (dtk ** 2) * (1. - h[k-1])
+        else:
+            grad[k] += (-dh_dc[k, k] * (bk + ck) - h[k-1] + h[k] + bk * dtk) / (bk + ck) ** 2
 
         for m in range(k + 1, M):
             bm = lambda2[m]['rate']
             cm = lambda1[m]['rate']
-            grad[k] += (dh_dc[m, k] - dh_dc[m-1, k]) / (bm + cm)
+            dtm = lambda2[m]['length']
+            
+            if bm + cm < 1e-10:
+                grad[k] += dtm * dh_dc[m-1, k]
+            else:
+                grad[k] += (dh_dc[m, k] - dh_dc[m-1, k]) / (bm + cm)
 
         grad[k] *= pi[k]
 

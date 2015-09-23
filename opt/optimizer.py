@@ -11,7 +11,9 @@ def get_projector_parameters(budget, upper_bounds):
     G[:n, :n] = np.diag([-1.] * n)
     G[n:, :n] = np.diag([1.] * n)
     G = matrix(G)
-    h = matrix(np.array([0.] * n + upper_bounds))
+    h = np.zeros(2 * n)
+    h[n:2*n] = upper_bounds
+    h = matrix(h)
     A = matrix(np.ones((1., n)))
 
     return [P, G, h, A, matrix([budget])]

@@ -122,7 +122,7 @@ class TweetList:
         """
 
         if start_time is None:
-                    start_time = datetime.datetime.fromtimestamp(0)
+            start_time = datetime.datetime.fromtimestamp(0)
         if end_time is None:
             end_time = datetime.datetime.fromtimestamp(max(self.tweet_times))
         if time_slots is None:

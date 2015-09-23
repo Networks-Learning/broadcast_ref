@@ -98,7 +98,7 @@ class User:
         self._followers = []
 
         cur = self._conn.get_cursor()
-        followers = cur.execute('select ida from li.links where idb=?', (self._user_id,)).fetchall()
+        followers = cur.execute('select ida from li.links where idb=? AND ida=18949502;', (self._user_id,)).fetchall()
         cur.close()
 
         follower_count = len(followers)
@@ -118,6 +118,15 @@ class User:
             self._followers_weights[follower.user_id()] = weight
         else:
             self._followers_weights[follower] = weight
+            
+    def get_follower_weight(self, follower):
+        if self._followers_weights is None:
+            self.followers_weights()
+
+        if isinstance(follower, User):
+            return self._followers_weights[follower.user_id()]
+        else:
+            return self._followers_weights[follower]
 
     def followers_weights(self):
         if self._followers_weights is not None:
@@ -129,17 +138,20 @@ class User:
 
         return self._followers_weights
 
-    def wall_tweet_list(self, excluded_user_id=None):
+    def wall_tweet_list(self, excluded_user_id=0):
         if self._wall_tweet_list is not None:
             return self._wall_tweet_list
-        print 'q..'
+        print 'query begin.. for %d' % self.user_id()
+        cur = self._conn.get_cursor()
         tweets = cur.execute(
-            '''SELECT tweet_time FROM tweets WHERE user_id IN (SELECT idb FROM li.links WHERE ida=?);''', self.user_id()).fetchall()
-        print 'eq..'
+            'SELECT tweet_time FROM tweets WHERE user_id IN (SELECT idb FROM li.links WHERE ida=? AND idb != ?)', (self.user_id(), excluded_user_id)).fetchall()
+        cur.close()
+        print 'end query..'
         self._wall_tweet_list = models.TweetList([tweet[0] for tweet in tweets])
+        print 'done!'
         return self._wall_tweet_list
 
-    def wall_intensity(self, excluded_user_id=None):
+    def wall_intensity(self, excluded_user_id=0):
         if self._wall_intensity is not None:
             return self._wall_intensity
 
@@ -160,7 +172,7 @@ class User:
             for target in self.followers():
                 ti = target.wall_intensity().sub_intensity(start_hour, end_hour)
                 _max = max([oi[i]['rate'] / ti[i]['rate'] for i in range(oi.size()) if ti[i]['rate'] != 0.0])
-                upper_bounds += self.followers_weights()[target] * _max * \
+                upper_bounds += self.get_follower_weight(target) * _max * \
                                 np.array([ti[i]['rate'] for i in range(oi.size())])
 
         followers_intensities = [
@@ -169,7 +181,7 @@ class User:
         ]
 
         followers_weights = [
-            self.followers_weights()[target]
+            self.get_follower_weight(target)
             for target in self.followers()
         ]
 

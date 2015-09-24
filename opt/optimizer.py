@@ -1,6 +1,9 @@
 from __future__ import division
 import numpy as np
 from cvxopt import matrix, solvers
+from data.models import Intensity
+from opt import utils
+from data.user import User
 
 
 def get_projector_parameters(budget, upper_bounds):
@@ -12,7 +15,7 @@ def get_projector_parameters(budget, upper_bounds):
     G[n:, :n] = np.diag([1.] * n)
     G = matrix(G)
     h = np.zeros(2 * n)
-    h[n:2*n] = upper_bounds
+    h[n:2 * n] = upper_bounds
     h = matrix(h)
     A = matrix(np.ones((1., n)))
 
@@ -26,7 +29,7 @@ def projection(q, P, G, h, A, C):
                 A*x = b.
     """
     q = matrix(np.transpose(q))
-#     solvers.options['show_progress'] = True
+    #     solvers.options['show_progress'] = True
     sol = solvers.qp(P, -q, G, h, A, C)
 
     return np.reshape(sol['x'], len(sol['x']))
@@ -68,3 +71,71 @@ def optimize(util, util_grad, budget, upper_bounds, threshold, x0=None):
 
     opt_rates = optimize_base(util, util_grad, proj, x0, threshold)
     return opt_rates
+
+
+def learn_and_optimize(user, budget=None, upper_bounds=None,
+                       period_length=24 * 7, time_slots=None,
+                       start_hour=0, end_hour=24,
+                       learn_start_date=None, learn_end_date=None,
+                       util=utils.weighted_top_one, util_gradient=utils.weighted_top_one_grad,
+                       threshold=0.005):
+    """
+    :type user: User
+    :type upper_bounds: np.ndarray
+    :type start_hour: float
+    :type end_hour: float
+    :type learn_start_date: datetime
+    :type learn_end_date: datetime
+    :return: optimized intensity with respect to parameters given
+    """
+
+    if time_slots is None:
+        time_slots = [1.] * period_length
+
+    user_tl = user.tweet_list().sublist(learn_start_date, learn_end_date)
+    oi = user_tl.get_periodic_intensity(period_length, time_slots).sub_intensity(start_hour, end_hour)
+
+    if budget is None:
+        budget = sum([x['rate'] * x['length'] for x in oi])
+
+    if upper_bounds is None:
+        upper_bounds = np.zeros(oi.size())
+        followers_wall_intensities = []
+
+        for target in user.followers():
+            target_wall_intensity = target.wall_tweet_list().sublist(learn_start_date, learn_end_date) \
+                .get_periodic_intensity(period_length, time_slots) \
+                .sub_intensity(start_hour, end_hour)
+
+            followers_wall_intensities.append(target_wall_intensity)
+
+            _max = max([oi[i]['rate'] / target_wall_intensity[i]['rate']
+                        for i in range(oi.size()) if target_wall_intensity[i]['rate'] != 0.0])
+
+            upper_bounds += user.get_follower_weight(target) * _max * \
+                            np.array(target_wall_intensity.get_as_vector()[0])
+    else:
+        followers_wall_intensities = [
+            target.wall_tweet_list().sublist(learn_start_date, learn_end_date) \
+                .get_periodic_intensity(period_length, time_slots) \
+                .sub_intensity(start_hour, end_hour)
+            for target in user.followers()
+        ]
+
+    followers_weights = [
+        user.get_follower_weight(target)
+        for target in user.followers()
+        ]
+
+    followers_conn_prob = [
+        target.wall_tweet_list().sublist(learn_start_date, learn_end_date).connection_probability()[start_hour:end_hour]
+        for target in user.followers()
+        ]
+
+    def _util(x):
+        return util(Intensity(x), followers_wall_intensities, followers_conn_prob, followers_weights)
+
+    def _util_grad(x):
+        return util_gradient(Intensity(x), followers_wall_intensities, followers_conn_prob, followers_weights)
+
+    return optimize(_util, _util_grad, budget, upper_bounds, threshold=threshold)

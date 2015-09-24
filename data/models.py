@@ -102,41 +102,48 @@ class TweetList:
     def sort(self):
         self.tweet_times.sort()
         
-    def sublist(self, start_time, end_time):
-        start = long(start_time.strftime('%s'))
-        end = long(end_time.strftime('%s'))
+    def sublist(self, start_date=None, end_date=None):
+        """
+        :param start_date: The start of time that we want to calculate
+        :param end_date: The end of time that we want to calculate
+        :return: a TweetList with tweets in range [start_time, end_time]
+        """
+        if start_date is None:
+            start_date = datetime.datetime.fromtimestamp(0)
+        if end_date is None:
+            end_date = datetime.datetime.fromtimestamp(max([0] + self.tweet_times))
+
+        start = long(start_date.strftime('%s'))
+        end = long(end_date.strftime('%s'))
         lst = []
         for t in self.tweet_times:
             if end >= t >= start:
                 lst.append(t)
-#         lst.sort()
-        return lst
+        return TweetList(lst)
 
-    def get_periodic_intensity(self, period_length=24 * 7, time_slots=0, start_time=None, end_time=None):
+    def get_periodic_intensity(self, period_length=24 * 7, time_slots=None):
         """
         :param period_length: in hours, default is one week (must be an integer if time_slots is None)
         :param time_slots: if not provided, default is equal time slots of one hour
-        :param start_time: The start of time that we want to learn the intensity
-        :param end_time: The end of time that we want to learn the intensity
         :return: intensity in the period length
         """
-
-        if start_time is None:
-            start_time = datetime.datetime.fromtimestamp(0)
-        if end_time is None:
-            end_time = datetime.datetime.fromtimestamp(max(self.tweet_times))
         if time_slots is None:
             time_slots = [1.] * period_length
 
         assert sum(time_slots) == period_length
 
-        total_time = (self[-1] - self[0]) / 3600.
+        tweets_per_slot = [0] * len(time_slots)
+
+        if len(self.tweet_times) is 0:
+            intensity = Intensity()
+            for i in range(len(time_slots)):
+                intensity.append(rate=0., length=time_slots[i])
+            return intensity
+
+        total_time = (max(self.tweet_times) - min(self.tweet_times)) / 3600.
         total_number_of_periods = ceil(total_time / period_length)
 
-        tweets_per_slot = [0] * len(time_slots)
-        time_window = self.sublist(start_time, end_time)
-
-        for time in time_window:
+        for time in self.tweet_times:
             tweets_per_slot[find_interval(time, period_length, time_slots)] += 1
 
         intensity = Intensity()
@@ -159,40 +166,38 @@ class TweetList:
 
         assert sum(time_slots) == period_length
 
-        bags = [None] * len(time_slots)
-        for i in range(len(time_slots)):
-            bags[i] = set()
+        if len(self.tweet_times):
+            bags = [None] * len(time_slots)
+            for i in range(len(time_slots)):
+                bags[i] = set()
 
-        max_period_id, min_period_id = 0, 100000
+            max_period_id, min_period_id = 0, 100000
 
-        for time in self.tweet_times:
-            period_id = int(time / period_length / 3600)
-            bags[find_interval(time, period_length, time_slots)].add(period_id)
+            for time in self.tweet_times:
+                period_id = int(time / period_length / 3600)
+                bags[find_interval(time, period_length, time_slots)].add(period_id)
 
-            max_period_id = period_id if max_period_id < period_id else max_period_id
-            min_period_id = period_id if min_period_id > period_id else min_period_id
+                max_period_id = period_id if max_period_id < period_id else max_period_id
+                min_period_id = period_id if min_period_id > period_id else min_period_id
 
-        period_count = max_period_id - min_period_id + 1
+            period_count = max_period_id - min_period_id + 1
 
-        return [len(bag) / period_count for bag in bags]
+            return [len(bag) / period_count for bag in bags]
+
+        else:
+            return [0.] * len(time_slots)
 
 
 def find_interval(tweet_time, period_length, time_slots):
     # With assumption of equal time intervals...
     return int(floor((tweet_time % (period_length * 3600)) / (3600. * time_slots[0])))
 
-#     time_in_period = tweet_time % (period_length * 3600)
-#     t, i = 0, 0
-#     while t < time_in_period:
-#         t += time_slots[i] * 3600.
-#         i += 1
-#     return i - 1
-
 
 def main():
-    times = np.array([0.8, 0.9, 3.1, 5.2, 7.8, 8.3, 11.4, 13.2, 15.6, 19.2, 21.3]) * 3600.
-    list = TweetList(times)
-    print list.get_connection_probability(8)
+    t = TweetList([])
+    t.sublist(datetime.datetime(2007, 10, 1), datetime.datetime.now())
+    t.get_connection_probability()
+    t.get_periodic_intensity()
 
 if __name__ == '__main__':
     main()

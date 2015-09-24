@@ -29,7 +29,7 @@ def projection(q, P, G, h, A, C):
                 A*x = b.
     """
     q = matrix(np.transpose(q))
-    #     solvers.options['show_progress'] = True
+    solvers.options['show_progress'] = False
     sol = solvers.qp(P, -q, G, h, A, C)
 
     return np.reshape(sol['x'], len(sol['x']))
@@ -97,26 +97,30 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
 
     if budget is None:
         budget = sum([x['rate'] * x['length'] for x in oi])
-
+    
+    no_bad_users = 0
     if upper_bounds is None:
         upper_bounds = np.zeros(oi.size())
         followers_wall_intensities = []
 
         for target in user.followers():
-            target_wall_intensity = target.wall_tweet_list().sublist(learn_start_date, learn_end_date) \
+            target_wall_intensity = target.wall_tweet_list(excluded_user_id=user.user_id()).sublist(learn_start_date, learn_end_date)\
                 .get_periodic_intensity(period_length, time_slots) \
                 .sub_intensity(start_hour, end_hour)
 
             followers_wall_intensities.append(target_wall_intensity)
 
-            _max = max([oi[i]['rate'] / target_wall_intensity[i]['rate']
+            _max = max([0] + [oi[i]['rate'] / target_wall_intensity[i]['rate']
                         for i in range(oi.size()) if target_wall_intensity[i]['rate'] != 0.0])
+            
+            if _max == 0:
+                no_bad_users += 1
 
             upper_bounds += user.get_follower_weight(target) * _max * \
                             np.array(target_wall_intensity.get_as_vector()[0])
     else:
         followers_wall_intensities = [
-            target.wall_tweet_list().sublist(learn_start_date, learn_end_date) \
+            target.wall_tweet_list(excluded_user_id=user.user_id()).sublist(learn_start_date, learn_end_date) \
                 .get_periodic_intensity(period_length, time_slots) \
                 .sub_intensity(start_hour, end_hour)
             for target in user.followers()
@@ -128,9 +132,16 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
         ]
 
     followers_conn_prob = [
-        target.wall_tweet_list().sublist(learn_start_date, learn_end_date).connection_probability()[start_hour:end_hour]
+        target.tweet_list().sublist(learn_start_date, learn_end_date).get_connection_probability()[start_hour:end_hour]
         for target in user.followers()
         ]
+    
+    print 'upper bounds: '
+    print upper_bounds
+    print 'budget: '
+    print budget
+    print 'bad users: '
+    print no_bad_users
 
     def _util(x):
         return util(Intensity(x), followers_wall_intensities, followers_conn_prob, followers_weights)

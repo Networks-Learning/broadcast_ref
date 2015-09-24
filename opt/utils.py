@@ -88,6 +88,8 @@ def gradient_top_k(lambda1, lambda2, k, h0=None, pi=None):
     :param h0: initial value array at t=0
     :return: gradient of function
     """
+    
+    h0 = [0.] * k if h0 is None else h0
 
     n = lambda2.size()
     grad = np.array([0.] * n)
@@ -205,4 +207,5 @@ def weighted_top_one_grad(lambda1, lambda2_list, conn_probs, weights):
 
     for i in range(len(lambda2_list)):
         s += gradient_top_one(lambda1, lambda2_list[i], conn_probs[i]) * weights[i]
+#         s += gradient_top_k(lambda1, lambda2_list[i], 1, pi=conn_probs[i]) * weights[i]
     return s

@@ -1,7 +1,7 @@
 from __future__ import division
 import datetime
 import numpy as np
-from math import ceil
+from math import ceil, floor
 
 
 class Intensity:
@@ -109,7 +109,7 @@ class TweetList:
         for t in self.tweet_times:
             if end >= t >= start:
                 lst.append(t)
-        lst.sort()
+#         lst.sort()
         return lst
 
     def get_periodic_intensity(self, period_length=24 * 7, time_slots=0, start_time=None, end_time=None):
@@ -178,12 +178,15 @@ class TweetList:
 
 
 def find_interval(tweet_time, period_length, time_slots):
-    time_in_period = tweet_time % (period_length * 3600)
-    t, i = 0, 0
-    while t < time_in_period:
-        t += time_slots[i] * 3600.
-        i += 1
-    return i - 1
+    # With assumption of equal time intervals...
+    return int(floor((tweet_time % (period_length * 3600)) / (3600. * time_slots[0])))
+
+#     time_in_period = tweet_time % (period_length * 3600)
+#     t, i = 0, 0
+#     while t < time_in_period:
+#         t += time_slots[i] * 3600.
+#         i += 1
+#     return i - 1
 
 
 def main():

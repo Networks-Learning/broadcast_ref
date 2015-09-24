@@ -218,4 +218,3 @@ def weighted_top_one_grad(lambda1, lambda2_list, conn_probs, weights):
     for i in range(len(lambda2_list)):
         s += gradient_top_one(lambda1, lambda2_list[i], conn_probs[i]) * weights[i]
     return s
-

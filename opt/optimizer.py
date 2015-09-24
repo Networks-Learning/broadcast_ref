@@ -26,7 +26,7 @@ def projection(q, P, G, h, A, C):
                 A*x = b.
     """
     q = matrix(np.transpose(q))
-    solvers.options['show_progress'] = False
+#     solvers.options['show_progress'] = True
     sol = solvers.qp(P, -q, G, h, A, C)
 
     return np.reshape(sol['x'], len(sol['x']))
@@ -34,7 +34,7 @@ def projection(q, P, G, h, A, C):
 
 def optimize_base(util, grad, proj, x0, threshold, gamma=0.9, c=1.):
     max_iterations = 1000
-    x = x0
+    x = proj(x0)
 
     for i in range(max_iterations):
         if i % 10 == 0:

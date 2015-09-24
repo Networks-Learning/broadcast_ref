@@ -14,7 +14,7 @@ class User:
     _wall_intensity = None
     _followees = None
     _followers = None
-    _followers_weights = {}
+    _followers_weights = None
     _conn = None
 
     options = {}
@@ -98,7 +98,7 @@ class User:
         self._followers = []
 
         cur = self._conn.get_cursor()
-        followers = cur.execute('select ida from li.links where idb=? AND ida=18949502;', (self._user_id,)).fetchall()
+        followers = cur.execute('select ida from li.links where idb=?', (self._user_id,)).fetchall()
         cur.close()
 
         follower_count = len(followers)
@@ -106,7 +106,12 @@ class User:
         for follower in followers:
             follower_id = follower[0]
             follower_user = User(follower_id, self._conn, **self.options)
-            self._followers.append(follower_user)
+            follower_followee_count = len(follower_user.followees())
+            if follower_followee_count <= 500:
+                self._followers.append(follower_user)
+            else:
+                print 'droped user %d, because he had %d followers!' % (follower_user.user_id(), follower_followee_count)
+                del follower_user
 
         return self._followers
 
@@ -131,7 +136,8 @@ class User:
     def followers_weights(self):
         if self._followers_weights is not None:
             return self._followers_weights
-
+        
+        self._followers_weights = {}
         follower_count = len(self.followers())
         for follower in self.followers():
             self._followers_weights[follower.user_id()] = 1. / follower_count
@@ -146,17 +152,17 @@ class User:
         tweets = cur.execute(
             'SELECT tweet_time FROM tweets WHERE user_id IN (SELECT idb FROM li.links WHERE ida=? AND idb != ?)', (self.user_id(), excluded_user_id)).fetchall()
         cur.close()
-        print 'end query..'
+#         print 'end query..'
         self._wall_tweet_list = models.TweetList([tweet[0] for tweet in tweets])
-        print 'done!'
+#         print 'done!'
         return self._wall_tweet_list
 
     def wall_intensity(self, excluded_user_id=0):
         if self._wall_intensity is not None:
             return self._wall_intensity
 
-        self._wall_intensity = self.wall_tweet_list(excluded_user_id).get_periodic_intensity(
-            self.options['period_length'], self.options['time_slots'])
+        t_list = self.wall_tweet_list(excluded_user_id)
+        self._wall_intensity = t_list.get_periodic_intensity(self.options['period_length'], self.options['time_slots'])
 
         return self._wall_intensity
 
@@ -176,7 +182,7 @@ class User:
                                 np.array([ti[i]['rate'] for i in range(oi.size())])
 
         followers_intensities = [
-            target.intensity().sub_intensity(start_hour, end_hour)
+            target.wall_intensity().sub_intensity(start_hour, end_hour)
             for target in self.followers()
         ]
 
@@ -189,6 +195,8 @@ class User:
             target.connection_probability()[start_hour:end_hour]
             for target in self.followers()
         ]
+        
+        yield followers_intensities, followers_weights, followers_conn_prob, upper_bounds
 
         def _util(x):
             return util(Intensity(x), followers_intensities, followers_conn_prob, followers_weights)
@@ -196,4 +204,5 @@ class User:
         def _util_grad(x):
             return util_gradient(Intensity(x), followers_intensities, followers_conn_prob, followers_weights)
 
-        return optimizer.optimize(_util, _util_grad, budget, upper_bounds, threshold=0.005)
+        yield optimizer.optimize(_util, _util_grad, budget, upper_bounds, threshold=0.005)
+        return

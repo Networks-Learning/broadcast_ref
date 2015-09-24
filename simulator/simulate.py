@@ -29,6 +29,19 @@ def generate_poisson_process(rate, time_start, time_end):
     return points
 
 
+def calculate_real_visibility_time(t1, t2, pi):
+    i = int(t1)
+    j = int(t2)
+    if i == j:
+        if j == len(pi):
+            return 0.
+        return (t2 - t1) * pi[i]
+    else:
+        if j == len(pi):
+            return sum(pi[i:j]) - (t1 - float(i)) * pi[i]
+        return sum(pi[i:j]) - (t1 - float(i)) * pi[i] + (t2 - float(j)) * pi[j]
+
+
 def generate_piecewise_constant_poisson_process(intensity, start_time=0):
     """
     :param start_time: starting time in UNIX format
@@ -47,7 +60,7 @@ def generate_piecewise_constant_poisson_process(intensity, start_time=0):
     return process
 
 
-def time_being_in_top_k(process1, process2, k, end_of_time, process1_initial_position=None):
+def time_being_in_top_k(process1, process2, k, end_of_time, pi, process1_initial_position=None):
     """
     This functions takes two array of events' times, process1 and process2
     and then computes the amount of time that process1 was in last $k$ events from beginning of time till "end_of_time".
@@ -68,34 +81,35 @@ def time_being_in_top_k(process1, process2, k, end_of_time, process1_initial_pos
         last_time_event = process1[it1]
         it1 += 1
         if process1_position <= k:
-            time_on_top += last_time_event
+            time_on_top += calculate_real_visibility_time(0., last_time_event, pi)
         process1_position = 1
     else:
         last_time_event = process2[it2]
         it2 += 1
         if process1_position <= k:
-            time_on_top += last_time_event
+            time_on_top += calculate_real_visibility_time(0., last_time_event, pi)
         process1_position += 1
 
     while it1 + it2 < len(process1) + len(process2) - 2:
         if process1[it1] < process2[it2]:
             if process1_position <= k:
-                time_on_top += process1[it1] - last_time_event
+                time_on_top += calculate_real_visibility_time(last_time_event, process1[it1], pi)
             last_time_event = process1[it1]
             it1 += 1
             process1_position = 1
         else:
             if process1_position <= k:
-                time_on_top += process2[it2] - last_time_event
+                time_on_top += calculate_real_visibility_time(last_time_event, process2[it2], pi)
             last_time_event = process2[it2]
             it2 += 1
             process1_position += 1
     if process1_position <= k:
-        time_on_top += end_of_time - last_time_event
+        time_on_top += calculate_real_visibility_time(last_time_event, end_of_time, pi)
+
     return time_on_top
 
 
-def get_expectation_std_top_k_simulating(lambda1, lambda2, k, number_of_iterations=100000):
+def get_expectation_std_top_k_simulating(lambda1, lambda2, k, pi, number_of_iterations=10000):
     """
     This function will simulate two poisson processes with rates $\lambda_1$ and $\lambda_2$ for "number_of_iterations"
     times and for each of the simulations computes the function "time_being_in_top_k"
@@ -111,22 +125,14 @@ def get_expectation_std_top_k_simulating(lambda1, lambda2, k, number_of_iteratio
         process1 = generate_piecewise_constant_poisson_process(lambda1)
         process2 = generate_piecewise_constant_poisson_process(lambda2)
 
-        times_on_top += [time_being_in_top_k(process1, process2, k, lambda1.total_time())]
+        times_on_top += [time_being_in_top_k(process1, process2, k, lambda1.total_time(), pi)]
 
     return [np.mean(times_on_top), np.std(times_on_top)]
 
 
 def main():
-    from data.models import TweetList
-
-    lambda1 = Intensity([2, 14, 10, 5, 0.1, 0.2, 1])
-    tw_lst = TweetList()
-    for i in range(10):
-        proc = generate_piecewise_constant_poisson_process(lambda1)
-        proc = [t * 3600 + i * (3600 * 7) for t in proc]
-        tw_lst.append_to(proc)
-    print(tw_lst.get_periodic_intensity(7))
-
+    pi = [.3, .7, .45]
+    print time_being_in_top_k([1.], [], 1, 3., pi)
 
 if __name__ == '__main__':
     main()

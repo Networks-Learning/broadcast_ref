@@ -4,6 +4,8 @@ from cvxopt import matrix, solvers
 from data.models import Intensity
 from opt import utils
 from data.user import User
+import time
+import sys
 
 
 def get_projector_parameters(budget, upper_bounds):
@@ -59,6 +61,7 @@ def optimize_base(util, grad, proj, x0, threshold, gamma=0.9, c=1.):
 
 
 def optimize(util, util_grad, budget, upper_bounds, threshold, x0=None):
+    start = int(round(time.time() * 1000))
     proj_params = get_projector_parameters(budget, upper_bounds)
 
     def proj(x):
@@ -70,6 +73,8 @@ def optimize(util, util_grad, budget, upper_bounds, threshold, x0=None):
     x0 = [0.] * len(upper_bounds) if x0 is None else x0
 
     opt_rates = optimize_base(util, util_grad, proj, x0, threshold)
+    delta = int(round(time.time() * 1000)) - start
+    sys.stderr.write('Total time: %d' % delta)
     return opt_rates
 
 

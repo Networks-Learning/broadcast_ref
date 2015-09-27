@@ -209,3 +209,18 @@ def weighted_top_one_grad(lambda1, lambda2_list, conn_probs, weights):
         s += gradient_top_one(lambda1, lambda2_list[i], conn_probs[i]) * weights[i]
 #         s += gradient_top_k(lambda1, lambda2_list[i], 1, pi=conn_probs[i]) * weights[i]
     return s
+
+def max_min_top_one(lambda1, lambda2_list, conn_probs, weights):
+    s = np.inf
+    for i in range(len(lambda2_list)):
+        s = min(s, expected_f_top_one(lambda1, lambda2_list[i], conn_probs[i]))
+    return s
+
+def max_min_top_one_grad(lambda1, lambda2_list, conn_probs, weights):
+    x = np.inf
+    ind = 0
+    for i in range(len(lambda2_list)):
+        if x <= expected_f_top_one(lambda1, lambda2_list[i], conn_probs[i]):
+            ind = i
+            
+    return gradient_top_one(lambda1, lambda2_list[ind], conn_probs[ind])

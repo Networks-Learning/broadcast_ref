@@ -49,7 +49,6 @@ def expected_f_top_k(lambda1, lambda2, k, h0=None, pi=None):
 
 
 def expected_f_trapz(lambda1, lambda2, k, h0=None, pi=None):
-
     h0 = [0.] * k if h0 is None else h0
 
     e_f = 0
@@ -65,7 +64,6 @@ def expected_f_trapz(lambda1, lambda2, k, h0=None, pi=None):
 
 
 def expected_f_quad(lambda1, lambda2, k, h0=None, pi=None):
-
     h0 = [0.] * k if h0 is None else h0
 
     e_f = 0
@@ -89,7 +87,7 @@ def gradient_top_k(lambda1, lambda2, k, h0=None, pi=None):
     :param h0: initial value array at t=0
     :return: gradient of function
     """
-    
+
     h0 = [0.] * k if h0 is None else h0
 
     n = lambda2.size()
@@ -136,9 +134,9 @@ def expected_f_top_one(lambda1, lambda2, pi):
     return e_f
 
 
-def h_va_shoraka(lambda1, lambda2, pi):
+def h_va_shoraka(lambda1, lambda2):
     M = lambda1.size()
-    h = np.zeros(M+1)
+    h = np.zeros(M + 1)
     dh_dc = np.zeros((M, M))
     q = np.zeros(M)
 
@@ -148,17 +146,17 @@ def h_va_shoraka(lambda1, lambda2, pi):
         cm = lambda1[m]['rate']
         dt = lambda2[m]['length']
         q[m] = exp(-dt * (bm + cm))
-        h[m] = f_top_one(dt, bm, cm, h[m-1])
+        h[m] = f_top_one(dt, bm, cm, h[m - 1])
 
     for m in range(M):
         bm = lambda2[m]['rate']
         cm = lambda1[m]['rate']
         dt = lambda2[m]['length']
-        
+
         if bm + cm == 0.:
-            dh_dc[m, m] = dt * (1 - h[m-1])
+            dh_dc[m, m] = dt * (1 - h[m - 1])
         else:
-            dh_dc[m, m] = (1. - q[m]) * bm / ((bm + cm) ** 2) - (h[m-1] - cm / (bm + cm)) * q[m] * dt
+            dh_dc[m, m] = (1. - q[m]) * bm / ((bm + cm) ** 2) - (h[m - 1] - cm / (bm + cm)) * q[m] * dt
 
         for j in range(m + 1, M):
             dh_dc[j, m] = q[j] * dh_dc[j - 1, m]
@@ -177,21 +175,19 @@ def gradient_top_one(lambda1, lambda2, pi):
         dtk = lambda2[k]['length']
 
         if bk + ck == 0.:
-            grad[k] += (dtk ** 2) * (1. - h[k-1]) / 2.
+            grad[k] += (dtk ** 2) * (1. - h[k - 1]) / 2. * pi[k]
         else:
-            grad[k] += (-dh_dc[k, k] * (bk + ck) - h[k-1] + h[k] + bk * dtk) / (bk + ck) ** 2
+            grad[k] += (-dh_dc[k, k] * (bk + ck) - h[k - 1] + h[k] + bk * dtk) / (bk + ck) ** 2 * pi[k]
 
         for m in range(k + 1, M):
             bm = lambda2[m]['rate']
             cm = lambda1[m]['rate']
             dtm = lambda2[m]['length']
-            
-            if bm + cm == 0.:
-                grad[k] += dtm * dh_dc[m-1, k]
-            else:
-                grad[k] += (dh_dc[m-1, k] - dh_dc[m, k]) / (bm + cm)
 
-        grad[k] *= pi[k]
+            if bm + cm == 0.:
+                grad[k] += dtm * dh_dc[m - 1, k] * pi[m]
+            else:
+                grad[k] += (dh_dc[m - 1, k] - dh_dc[m, k]) / (bm + cm) * pi[m]
 
     return grad
 
@@ -210,11 +206,13 @@ def weighted_top_one_grad(lambda1, lambda2_list, conn_probs, weights):
         s += gradient_top_one(lambda1, lambda2_list[i], conn_probs[i]) * weights[i]
     return s
 
+
 def max_min_top_one(lambda1, lambda2_list, conn_probs, weights):
     s = np.inf
     for i in range(len(lambda2_list)):
         s = min(s, expected_f_top_one(lambda1, lambda2_list[i], conn_probs[i]))
     return s
+
 
 def max_min_top_one_grad(lambda1, lambda2_list, conn_probs, weights):
     x = np.inf
@@ -224,5 +222,5 @@ def max_min_top_one_grad(lambda1, lambda2_list, conn_probs, weights):
         if v <= x:
             x = v
             ind = i
-            
+
     return gradient_top_one(lambda1, lambda2_list[ind], conn_probs[ind])

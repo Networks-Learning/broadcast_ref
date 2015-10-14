@@ -28,5 +28,6 @@ class DbConnection:
         if self.con:
             cur = self.con.cursor()
             cur.execute('''DETACH DATABASE li;''')
+            cur.execute('''DETACH DATABASE db;''')
             cur.close()
             self.con.close()

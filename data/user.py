@@ -55,7 +55,7 @@ class User:
         self._followees = []
 
         cur = self._conn.get_cursor()
-        followees = cur.execute('select idb from li.links where ida=?', (self._user_id,)).fetchall()
+        followees = cur.execute('select idb from links where ida=?', (self._user_id,)).fetchall()
         cur.close()
 
         for followee in followees:
@@ -72,7 +72,7 @@ class User:
         self._followers = []
 
         cur = self._conn.get_cursor()
-        followers = cur.execute('select ida from li.links where idb=?', (self._user_id,)).fetchall()
+        followers = cur.execute('select ida from links where idb=?', (self._user_id,)).fetchall()
         cur.close()
 
         for follower in followers:

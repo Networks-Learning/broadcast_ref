@@ -7,7 +7,15 @@ class DbConnection:
         cur = self.con.cursor()
         cur.execute('''ATTACH DATABASE "/local/moreka/db.sqlite3" as db;''')
         cur.execute('''ATTACH DATABASE "/local/moreka/links.sqlite3" as li;''')
-        print 'db loaded on RAM'
+
+        cur.execute('''CREATE TABLE tweets (tweet_time integer, user_id integer);''')
+        cur.execute('''CREATE TABLE links (ida integer, idb integer);''')
+        cur.execute('''INSERT INTO tweets SELECT * FROM db.tweets;''')
+        cur.execute('''INSERT INTO links SELECT * FROM li.links;''')
+        cur.execute('''CREATE INDEX main.idx1 ON main.tweets (user_id);''')
+        cur.execute('''CREATE INDEX main.idx2 ON main.links (ida);''')
+        cur.execute('''CREATE INDEX main.idx3 ON main.links (idb);''')
+
         cur.close()
 
     def __del__(self):

@@ -109,6 +109,7 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
         followers_wall_intensities = []
 
         for target in user.followers():
+            print "getting target %d wall" %target.user_id()
             target_wall_intensity = target.wall_tweet_list(excluded_user_id=user.user_id()).sublist(learn_start_date, learn_end_date)\
                 .get_periodic_intensity(period_length, time_slots) \
                 .sub_intensity(start_hour, end_hour)

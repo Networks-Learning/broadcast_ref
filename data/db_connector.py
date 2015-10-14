@@ -3,9 +3,11 @@ import sqlite3
 
 class DbConnection:
     def __init__(self):
-        self.con = sqlite3.connect('/local/moreka/db.sqlite3')        
+        self.con = sqlite3.connect(':memory:')
         cur = self.con.cursor()
+        cur.execute('''ATTACH DATABASE "/local/moreka/db.sqlite3" as db;''')
         cur.execute('''ATTACH DATABASE "/local/moreka/links.sqlite3" as li;''')
+        print 'db loaded on RAM'
         cur.close()
 
     def __del__(self):

@@ -142,6 +142,8 @@ class TweetList:
 
         total_time = (max(self.tweet_times) - min(self.tweet_times)) / 3600.
         total_number_of_periods = ceil(total_time / period_length)
+        if total_number_of_periods == 0:
+            total_number_of_periods = 1
 
         for time in self.tweet_times:
             tweets_per_slot[find_interval(time, period_length, time_slots)] += 1

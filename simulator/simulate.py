@@ -44,10 +44,11 @@ def calculate_real_visibility_time(t1, t2, pi):
 
 def generate_piecewise_constant_poisson_process(intensity, start_time=0):
     """
-    :param start_time: starting time in UNIX format
+    :param start_time: starting time in datetime format
     :type intensity: Intensity
     :return: a list
     """
+    
     process = []
     end_of_last_slot = start_time
 
@@ -60,7 +61,7 @@ def generate_piecewise_constant_poisson_process(intensity, start_time=0):
     return process
 
 
-def time_being_in_top_k(process1, process2, k, end_of_time, pi, process1_initial_position=None):
+def time_being_in_top_k(_process1, _process2, k, end_of_time, pi, process1_initial_position=None):
     """
     This functions takes two array of events' times, process1 and process2
     and then computes the amount of time that process1 was in last $k$ events from beginning of time till "end_of_time".
@@ -69,8 +70,8 @@ def time_being_in_top_k(process1, process2, k, end_of_time, pi, process1_initial
     time_on_top = 0
     it1 = 0
     it2 = 0
-    process1 += [end_of_time]
-    process2 += [end_of_time]
+    process1 = _process1 + [end_of_time]
+    process2 = _process2 + [end_of_time]
 
     if process1_initial_position is None:
         process1_position = k + 1
@@ -81,32 +82,58 @@ def time_being_in_top_k(process1, process2, k, end_of_time, pi, process1_initial
         last_time_event = process1[it1]
         it1 += 1
         if process1_position <= k:
-            time_on_top += calculate_real_visibility_time(0., last_time_event, pi)
+            try:
+                time_on_top += calculate_real_visibility_time(0., last_time_event, pi)
+            except:
+                print "error0"
+                print "last time event %f" %last_time_event
+                print pi
         process1_position = 1
     else:
         last_time_event = process2[it2]
         it2 += 1
         if process1_position <= k:
-            time_on_top += calculate_real_visibility_time(0., last_time_event, pi)
+            try:
+                time_on_top += calculate_real_visibility_time(0., last_time_event, pi)
+            except:
+                print "error1"
+                print "last time event %f" %last_time_event
+                print pi
         process1_position += 1
 
-    while it1 + it2 < len(process1) + len(process2) - 2:
+    while it1 < len(process1) -1 or it2 < len(process2) - 1:
         if process1[it1] < process2[it2]:
             if process1_position <= k:
-                time_on_top += calculate_real_visibility_time(last_time_event, process1[it1], pi)
+                try:
+                    time_on_top += calculate_real_visibility_time(last_time_event, process1[it1], pi)
+                except:
+                    print "error2"
+                    print last_time_event, process1[it1]
+                    print pi
             last_time_event = process1[it1]
             it1 += 1
             process1_position = 1
         else:
             if process1_position <= k:
-                time_on_top += calculate_real_visibility_time(last_time_event, process2[it2], pi)
+                try:
+                    time_on_top += calculate_real_visibility_time(last_time_event, process2[it2], pi)
+                except:
+                    print "error3"
+                    print last_time_event, process2[it2]
+                    print pi
             last_time_event = process2[it2]
             it2 += 1
             process1_position += 1
     if process1_position <= k:
-        time_on_top += calculate_real_visibility_time(last_time_event, end_of_time, pi)
+        try:
+            time_on_top += calculate_real_visibility_time(last_time_event, end_of_time, pi)
+        except:
+            print "error4"
+            print last_time_event, end_of_time
+            print pi
 
     return time_on_top
+
 
 
 def get_expectation_std_top_k_simulating(lambda1, lambda2, k, pi, number_of_iterations=10000):

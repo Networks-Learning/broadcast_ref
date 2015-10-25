@@ -42,7 +42,7 @@ class User:
             return self._tweet_list
 
         cur = self._conn.get_cursor()
-        tweet_times = cur.execute('select tweet_time from tweets where user_id=?', (self._user_id,)).fetchall()
+        tweet_times = cur.execute('select tweet_time from db.tweets where user_id=?', (self._user_id,)).fetchall()
         cur.close()
 
         self._tweet_list = models.TweetList([t[0] for t in tweet_times])
@@ -55,7 +55,7 @@ class User:
         self._followees = []
 
         cur = self._conn.get_cursor()
-        followees = cur.execute('select idb from links where ida=?', (self._user_id,)).fetchall()
+        followees = cur.execute('select idb from li.links where ida=?', (self._user_id,)).fetchall()
         cur.close()
 
         for followee in followees:
@@ -72,7 +72,7 @@ class User:
         self._followers = []
 
         cur = self._conn.get_cursor()
-        followers = cur.execute('select ida from links where idb=?', (self._user_id,)).fetchall()
+        followers = cur.execute('select ida from li.links where idb=?', (self._user_id,)).fetchall()
         cur.close()
 
         for follower in followers:
@@ -127,10 +127,9 @@ class User:
 
         cur = self._conn.get_cursor()
         tweets = cur.execute(
-            'SELECT tweet_time FROM tweets WHERE user_id IN (SELECT idb FROM links WHERE ida=? AND idb != ?)',
+            'SELECT tweet_time FROM db.tweets WHERE user_id IN (SELECT idb FROM li.links WHERE ida=? AND idb != ?)',
             (self.user_id(), excluded_user_id)).fetchall()
         cur.close()
         sys.stderr.write('fetch done\n')
         self._wall_tweet_list = models.TweetList([tweet[0] for tweet in tweets])
         return self._wall_tweet_list
-

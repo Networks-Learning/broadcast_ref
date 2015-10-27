@@ -37,7 +37,7 @@ def projection(q, P, G, h, A, C):
     return np.reshape(sol['x'], len(sol['x']))
 
 
-def optimize_base(util, grad, proj, x0, threshold, gamma=0.9, c=1.):
+def optimize_base(util, grad, proj, x0, threshold, gamma=0.9, c=0.9):
     max_iterations = 1000
     x = proj(x0)
 
@@ -49,9 +49,15 @@ def optimize_base(util, grad, proj, x0, threshold, gamma=0.9, c=1.):
         d = proj(x + g) - x
         s = gamma
         e_f = util(x)
-        while util(x + s * d) - e_f > c * gamma * np.dot(np.transpose(g), d) and \
-                        np.linalg.norm(s * d) >= threshold:
+        last_improve = util(x + s * d) - e_f
+        
+        while True:
             s *= gamma
+            current_improve = util(x + s * d) - e_f
+            if current_improve < last_improve or current_improve < threshold:
+                s /= gamma
+                break
+
 
         x += s * d
         if np.linalg.norm(s * d) < threshold:
@@ -68,7 +74,8 @@ def optimize(util, util_grad, budget, upper_bounds, threshold, x0=None):
         return projection(x, *proj_params)
 
     if sum(upper_bounds) <= budget:
-        return None
+        print "obvious case"
+        return upper_bounds
 
     x0 = [0.] * len(upper_bounds) if x0 is None else x0
 

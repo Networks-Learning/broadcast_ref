@@ -84,10 +84,11 @@ def time_being_in_top_k(_process1, _process2, k, end_of_time, pi, process1_initi
         if process1_position <= k:
             try:
                 time_on_top += calculate_real_visibility_time(0., last_time_event, pi)
-            except:
-                print "error0"
-                print "last time event %f" %last_time_event
-                print pi
+            except Exception as e:
+                print(e)
+                print("error0")
+                print("last time event %f" %last_time_event)
+                print(pi)
         process1_position = 1
     else:
         last_time_event = process2[it2]
@@ -95,10 +96,11 @@ def time_being_in_top_k(_process1, _process2, k, end_of_time, pi, process1_initi
         if process1_position <= k:
             try:
                 time_on_top += calculate_real_visibility_time(0., last_time_event, pi)
-            except:
-                print "error1"
-                print "last time event %f" %last_time_event
-                print pi
+            except Exception as e:
+                print(e)
+                print("error1")
+                print("last time event %f" %last_time_event)
+                print(pi)
         process1_position += 1
 
     while it1 < len(process1) -1 or it2 < len(process2) - 1:
@@ -106,10 +108,11 @@ def time_being_in_top_k(_process1, _process2, k, end_of_time, pi, process1_initi
             if process1_position <= k:
                 try:
                     time_on_top += calculate_real_visibility_time(last_time_event, process1[it1], pi)
-                except:
-                    print "error2"
-                    print last_time_event, process1[it1]
-                    print pi
+                except Exception as e:
+                    print(e)
+                    print("error2")
+                    print(last_time_event, process1[it1])
+                    print(pi)
             last_time_event = process1[it1]
             it1 += 1
             process1_position = 1
@@ -117,20 +120,22 @@ def time_being_in_top_k(_process1, _process2, k, end_of_time, pi, process1_initi
             if process1_position <= k:
                 try:
                     time_on_top += calculate_real_visibility_time(last_time_event, process2[it2], pi)
-                except:
-                    print "error3"
-                    print last_time_event, process2[it2]
-                    print pi
+                except Exception as e:
+                    print(e)
+                    print("error3")
+                    print(last_time_event, process2[it2])
+                    print(pi)
             last_time_event = process2[it2]
             it2 += 1
             process1_position += 1
     if process1_position <= k:
         try:
             time_on_top += calculate_real_visibility_time(last_time_event, end_of_time, pi)
-        except:
-            print "error4"
-            print last_time_event, end_of_time
-            print pi
+        except Exception as e:
+            print(e)
+            print("error4")
+            print(last_time_event, end_of_time)
+            print(pi)
 
     return time_on_top
 
@@ -158,8 +163,12 @@ def get_expectation_std_top_k_simulating(lambda1, lambda2, k, pi, number_of_iter
 
 
 def main():
-    pi = [.3, .7, .45]
-    print time_being_in_top_k([1.], [], 1, 3., pi)
+    our = [0.32163796122575966, 4.7320883625779135, 4.798904653802129, 6.543753457969907, 11.311562172163466, 16.05797576073429, 18.100602327340287, 21.244140769636825, 21.312855541985346]
+    real = [0.20944444444444443, 1.2269444444444444, 9.216944444444444, 13.210555555555555, 14.215277777777779, 15.240277777777777, 16.244722222222222, 19.223333333333333, 22.230555555555554, 22.72222222222222, 23.194444444444443]
+
+    for i in range(1000):
+        pi = np.random.random((24,))
+        print(time_being_in_top_k(our, real, 1, 24, pi=pi))
 
 if __name__ == '__main__':
     main()

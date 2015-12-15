@@ -30,6 +30,9 @@ def generate_poisson_process(rate, time_start, time_end):
 
 
 def calculate_real_visibility_time(t1, t2, pi):
+    """
+    :param t1: time scaled and non-offsetted in interval [0, 24]
+    """
     i = int(t1)
     j = int(t2)
     if i == j:
@@ -48,7 +51,7 @@ def generate_piecewise_constant_poisson_process(intensity, start_time=0):
     :type intensity: Intensity
     :return: a list
     """
-    
+
     process = []
     end_of_last_slot = start_time
 
@@ -78,64 +81,43 @@ def time_being_in_top_k(_process1, _process2, k, end_of_time, pi, process1_initi
     else:
         process1_position = process1_initial_position
 
+    if len(process1) == 0:
+        return 0.
+    if len(process2) == 0:
+        return end_of_time - process1[0]
+
     if process1[it1] < process2[it2]:
         last_time_event = process1[it1]
         it1 += 1
         if process1_position <= k:
-            try:
-                time_on_top += calculate_real_visibility_time(0., last_time_event, pi)
-            except Exception as e:
-                print(e)
-                print("error0")
-                print("last time event %f" %last_time_event)
-                print(pi)
+            time_on_top += calculate_real_visibility_time(0., last_time_event, pi)
+
         process1_position = 1
     else:
         last_time_event = process2[it2]
         it2 += 1
         if process1_position <= k:
-            try:
-                time_on_top += calculate_real_visibility_time(0., last_time_event, pi)
-            except Exception as e:
-                print(e)
-                print("error1")
-                print("last time event %f" %last_time_event)
-                print(pi)
+            time_on_top += calculate_real_visibility_time(0., last_time_event, pi)
+
         process1_position += 1
 
     while it1 < len(process1) -1 or it2 < len(process2) - 1:
         if process1[it1] < process2[it2]:
             if process1_position <= k:
-                try:
-                    time_on_top += calculate_real_visibility_time(last_time_event, process1[it1], pi)
-                except Exception as e:
-                    print(e)
-                    print("error2")
-                    print(last_time_event, process1[it1])
-                    print(pi)
+                time_on_top += calculate_real_visibility_time(last_time_event, process1[it1], pi)
+
             last_time_event = process1[it1]
             it1 += 1
             process1_position = 1
         else:
             if process1_position <= k:
-                try:
-                    time_on_top += calculate_real_visibility_time(last_time_event, process2[it2], pi)
-                except Exception as e:
-                    print(e)
-                    print("error3")
-                    print(last_time_event, process2[it2])
-                    print(pi)
+                time_on_top += calculate_real_visibility_time(last_time_event, process2[it2], pi)
+
             last_time_event = process2[it2]
             it2 += 1
             process1_position += 1
     if process1_position <= k:
-        try:
-            time_on_top += calculate_real_visibility_time(last_time_event, end_of_time, pi)
-        except Exception as e:
-            print(e)
-            print("error4")
-            print(last_time_event, end_of_time)
-            print(pi)
+        time_on_top += calculate_real_visibility_time(last_time_event, end_of_time, pi)
 
     return time_on_top
 

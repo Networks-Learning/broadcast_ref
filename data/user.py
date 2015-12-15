@@ -86,8 +86,8 @@ class User:
             if follower_followee_count <= self.options['max_followee_per_follower']:
                 self._followers.append(follower_user)
             else:
-                sys.stderr.write('Dropped user %d, because he had %d followers!\n' %
-                                 (follower_user.user_id(), follower_followee_count))
+                # sys.stderr.write('Dropped user %d, because he had %d followers!\n' %
+                #                 (follower_user.user_id(), follower_followee_count))
                 del follower_user
 
         return self._followers
@@ -126,14 +126,14 @@ class User:
         if self._wall_tweet_list is not None:
             return self._wall_tweet_list
 
-        sys.stderr.write('fetching wall tweet list for %d\n' % self.user_id())
+        # sys.stderr.write('fetching wall tweet list for %d\n' % self.user_id())
 
         cur = self._conn.get_cursor()
         tweets = cur.execute(
             'SELECT tweet_time FROM db.tweets WHERE user_id IN (SELECT idb FROM li.links WHERE ida=? AND idb != ?)',
             (self.user_id(), excluded_user_id)).fetchall()
         cur.close()
-        sys.stderr.write('fetch done\n')
+        # sys.stderr.write('fetch done\n')
         self._wall_tweet_list = models.TweetList([tweet[0] for tweet in tweets])
         return self._wall_tweet_list
 

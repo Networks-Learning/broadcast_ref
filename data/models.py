@@ -1,4 +1,6 @@
 from __future__ import division
+
+import bisect
 import datetime
 import numpy as np
 from math import ceil, floor
@@ -53,7 +55,7 @@ class Intensity:
         """
         return (np.array([item['rate'] for item in self.intensity]),
                 np.array([item['length'] for item in self.intensity]))
-    
+
     def sub_intensity(self, start, end):
         """
         :param start: defines the starting hour
@@ -78,12 +80,18 @@ class Intensity:
 
 
 class TweetList:
-    def __init__(self, times=None):
+    def __init__(self, times=None, build_index=True, sort=True, index=None):
         """
         Time is in unix timestamp format, and so is in seconds precision
-        :param times: time list, can be none
+        :param times: time list, can be none, if ndarray remains the same
         """
         self.tweet_times = [] if times is None else times
+        self.index = {} if (build_index is False or index is None) else index
+
+        if sort:
+            self.sort()
+        if build_index:
+            self.build_index()
 
     def __str__(self):
         return '%d tweets: ' % len(self.tweet_times) + str(self.tweet_times)
@@ -91,17 +99,14 @@ class TweetList:
     def __getitem__(self, item):
         return self.tweet_times[item]
 
-    def append_to(self, times):
-        if type(times) is list:
-            self.tweet_times += times
-        elif isinstance(times, TweetList):
-            self.tweet_times += times.tweet_times
-        else:
-            raise TypeError('Unknown type %s: Cannot append to tweet list' % type(times))
-        
+    def build_index(self):
+        for i in range(len(self.tweet_times)):
+            start_of_day = start_of_day_timestamp(self.tweet_times[i])
+            self.index[start_of_day] = i
+
     def sort(self):
         self.tweet_times.sort()
-        
+
     def sublist(self, start_date=None, end_date=None):
         """
         :param start_date: The start of time that we want to calculate
@@ -111,15 +116,13 @@ class TweetList:
         if start_date is None:
             start_date = datetime.datetime.fromtimestamp(0)
         if end_date is None:
-            end_date = datetime.datetime.fromtimestamp(max([0] + self.tweet_times))
+            end_date = datetime.datetime.fromtimestamp(max([0] + self.tweet_times[-1]))
 
-        start = long(start_date.strftime('%s'))
-        end = long(end_date.strftime('%s'))
-        lst = []
-        for t in self.tweet_times:
-            if end >= t >= start:
-                lst.append(t)
-        return TweetList(lst)
+        start = bisect.bisect_left(self.index.keys(), long(start_date.strftime('%s')))
+        end = bisect.bisect_right(self.index.keys(), long(end_date.strftime('%s')))
+
+        # todo: indexing gets incorrect during sub-listing (needs a shift)
+        return TweetList(self.tweet_times[start:end], index=self.index)
 
     def get_periodic_intensity(self, period_length=24 * 7, time_slots=None):
         """
@@ -195,11 +198,17 @@ def find_interval(tweet_time, period_length, time_slots):
     return int(floor((tweet_time % (period_length * 3600)) / (3600. * time_slots[0])))
 
 
+def start_of_day_timestamp(timestamp):
+    # 86400 = total seconds of a day, times are supposed to be UTC
+    return int(timestamp / 86400) * 86400
+
+
 def main():
     t = TweetList([])
     t.sublist(datetime.datetime(2007, 10, 1), datetime.datetime.now())
     t.get_connection_probability()
     t.get_periodic_intensity()
+
 
 if __name__ == '__main__':
     main()

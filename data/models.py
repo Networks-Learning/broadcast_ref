@@ -1,5 +1,4 @@
 from __future__ import division
-
 import bisect
 import datetime
 import numpy as np
@@ -85,7 +84,7 @@ class TweetList:
         Time is in unix timestamp format, and so is in seconds precision
         :param times: time list, can be none, if ndarray remains the same
         """
-        self.tweet_times = [] if times is None else times
+        self.tweet_times = [] if times is None else np.array(times)
         self.index = {} if (build_index is False or index is None) else index
 
         if sort:
@@ -100,9 +99,11 @@ class TweetList:
         return self.tweet_times[item]
 
     def build_index(self):
+        prev_i, prev_key = 0, 0
         for i in range(len(self.tweet_times)):
-            start_of_day = start_of_day_timestamp(self.tweet_times[i])
-            self.index[start_of_day] = i
+            start_of_day = int(self.tweet_times[i] / 86400) * 86400
+            if start_of_day not in self.index.keys():
+                self.index[start_of_day] = i
 
     def sort(self):
         self.tweet_times.sort()
@@ -122,7 +123,13 @@ class TweetList:
         end = bisect.bisect_right(self.index.keys(), long(end_date.strftime('%s')))
 
         # todo: indexing gets incorrect during sub-listing (needs a shift)
+        # todo: index[start]:index[end]?
         return TweetList(self.tweet_times[start:end], index=self.index)
+
+    def daily_tweets(self, date):
+        key = int(long(date.strftime('%s')) / 86400) * 86400
+        if key in self.index:
+            return
 
     def get_periodic_intensity(self, period_length=24 * 7, time_slots=None):
         """
@@ -196,11 +203,6 @@ class TweetList:
 def find_interval(tweet_time, period_length, time_slots):
     # With assumption of equal time intervals...
     return int(floor((tweet_time % (period_length * 3600)) / (3600. * time_slots[0])))
-
-
-def start_of_day_timestamp(timestamp):
-    # 86400 = total seconds of a day, times are supposed to be UTC
-    return int(timestamp / 86400) * 86400
 
 
 def main():

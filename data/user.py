@@ -12,6 +12,7 @@ class User:
     _probability = None
     _wall_tweet_list = None
     _wall_intensity = None
+    _excluded_user_in_wall = None
     _followees = None
     _followers = None
     _followers_weights = None
@@ -123,18 +124,16 @@ class User:
         return self._followers_weights
 
     def wall_tweet_list(self, excluded_user_id=0):
-        if self._wall_tweet_list is not None:
+        if self._wall_tweet_list is not None and excluded_user_id == self._excluded_user_in_wall:
             return self._wall_tweet_list
-
-        # sys.stderr.write('fetching wall tweet list for %d\n' % self.user_id())
 
         cur = self._conn.get_cursor()
         tweets = cur.execute(
             'SELECT tweet_time FROM db.tweets WHERE user_id IN (SELECT idb FROM li.links WHERE ida=? AND idb != ?)',
             (self.user_id(), excluded_user_id)).fetchall()
         cur.close()
-        # sys.stderr.write('fetch done\n')
         self._wall_tweet_list = models.TweetList([tweet[0] for tweet in tweets])
+        self._excluded_user_in_wall = excluded_user_id
         return self._wall_tweet_list
 
     def find_position(self, time, time_slots):

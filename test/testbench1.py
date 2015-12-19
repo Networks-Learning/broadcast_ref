@@ -22,11 +22,11 @@ def test_avm(test_start_date, test_end_date, user, test_intensity):
 
         week_end_day = week_start_day + timedelta(days=1)
 
-        print("week number {0}/{3}: {1} - {2}".format(week + 1, week_start_day, week_end_day, total_weeks))
+        print("week number {0}/{2}: {1}".format(week + 1, week_start_day, total_weeks))
 
         simulated_process = generate_piecewise_constant_poisson_process(Intensity(test_intensity))
 
-        real_process = user.tweet_list().sublist(start_date=week_start_day, end_date=week_end_day)
+        real_process = user.tweet_list().daily_tweets(week_start_day)
         real_process = [(x - week_start_day_unix) / 3600. for x in real_process]
 
         print("simulated process:")
@@ -40,7 +40,7 @@ def test_avm(test_start_date, test_end_date, user, test_intensity):
             show_progressbar(t_counter, len(user.followers()), target.user_id())
 
             test_list = target.wall_tweet_list(excluded_user_id=user.user_id()).daily_tweets(week_start_day)
-            tweet_bags = target.tweet_list().get_periodic_intensity(24)  # todo: should we change to test_list?
+            tweet_bags = test_list.get_periodic_intensity(24)
 
             pi = np.zeros(24)
             for j in range(24):

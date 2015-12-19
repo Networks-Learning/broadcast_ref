@@ -150,9 +150,10 @@ class TweetList:
     def daily_tweets(self, date):
         key = int(long(date.strftime('%s')) / 86400) * 86400
         if key in self.index:
-            return self.tweet_times[self.index[key]['start']:(self.index[key]['start'] + self.index[key]['len'])]
+            return TweetList(
+                self.tweet_times[self.index[key]['start']:(self.index[key]['start'] + self.index[key]['len'])])
         else:
-            return []
+            return TweetList([])
 
     def get_periodic_intensity(self, period_length=24 * 7, time_slots=None):
         """

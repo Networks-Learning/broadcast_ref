@@ -6,6 +6,7 @@ import numpy as np
 
 from data.models import Intensity
 from simulator.simulate import generate_piecewise_constant_poisson_process, time_being_in_top_k
+from util.cal import unix_timestamp
 
 
 def show_progressbar(counter, total, message):
@@ -20,7 +21,7 @@ def test_avm(test_start_date, test_end_date, user, test_intensity):
 
     for week in range(int(total_weeks)):
         week_start_day = test_start_date + timedelta(days=week * 7)
-        week_start_day_unix = int(week_start_day.strftime('%s'))
+        week_start_day_unix = unix_timestamp(week_start_day)
 
         print("week number {0}/{2}: {1}".format(week + 1, week_start_day, total_weeks))
 

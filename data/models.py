@@ -6,7 +6,8 @@ from math import ceil, floor
 from pprint import pprint
 
 import numpy as np
-import pytz
+
+from util.cal import unix_timestamp
 
 
 class Intensity:
@@ -139,8 +140,8 @@ class TweetList:
         if end_date is None:
             end_date = datetime.datetime.fromtimestamp(max([0] + self.tweet_times[-1]))
 
-        start_unix = long(start_date.strftime('%s'))
-        end_unix = long(end_date.strftime('%s'))
+        start_unix = unix_timestamp(start_date)
+        end_unix = unix_timestamp(end_date)
 
         start = bisect.bisect_left(self.index_keys, start_unix)  # index in index_keys
         end = bisect.bisect_left(self.index_keys, end_unix)  # index in index_keys
@@ -155,7 +156,7 @@ class TweetList:
         return TweetList(self.tweet_times[starting_tweet_index:ending_tweet_index], index=self.index, build_index=False)
 
     def daily_tweets(self, date):
-        key = int(long(date.strftime('%s')) / 86400) * 86400
+        key = int(unix_timestamp(date) / 86400) * 86400
         if key in self.index:
             return TweetList(
                 self.tweet_times[self.index[key]['start']:(self.index[key]['start'] + self.index[key]['len'])])
@@ -262,7 +263,7 @@ def main():
          1169262913, 1169323501,
          1169355915, 1169360554, 1169395149, 1169401647, ]
 
-    pprint([str(x) + ' ' + str(datetime.datetime.fromtimestamp(x, tz=pytz.utc)) for x in l])
+    pprint([str(x) + ' ' + str(datetime.datetime.fromtimestamp(x)) for x in l])
     t = TweetList(l)
     pprint(t.index)
     print(t.daily_tweets(datetime.datetime.fromtimestamp(1169164800)))

@@ -23,22 +23,22 @@ def test_avm(test_start_date, test_end_date, user, test_intensity):
         week_start_day = test_start_date + timedelta(days=week * 7)
         week_start_day_unix = unix_timestamp(week_start_day)
 
-        print("week number {0}/{2}: {1}".format(week + 1, week_start_day, total_weeks))
+        # print("week number {0}/{2}: {1}".format(week + 1, week_start_day, total_weeks))
 
         simulated_process = generate_piecewise_constant_poisson_process(Intensity(test_intensity))
 
         real_process = user.tweet_list().daily_tweets(week_start_day)
         real_process = [(x - week_start_day_unix) / 3600. for x in real_process]
 
-        print("--> simulated process:")
-        pprint(simulated_process)
-        print("--> real process:")
-        pprint(real_process)
+        # print("--> simulated process:")
+        # pprint(simulated_process)
+        # print("--> real process:")
+        # pprint(real_process)
 
         t_counter = 0
         for target in user.followers():
             t_counter += 1
-            show_progressbar(t_counter, len(user.followers()), target.user_id())
+            # show_progressbar(t_counter, len(user.followers()), target.user_id())
 
             test_list = target.wall_tweet_list(excluded_user_id=user.user_id()).daily_tweets(week_start_day)
             tweet_bags = test_list.get_periodic_intensity(24)
@@ -53,7 +53,9 @@ def test_avm(test_start_date, test_end_date, user, test_intensity):
             now.append(time_being_in_top_k(simulated_process, target_wall_no_offset, 1, 24., pi))
             before.append(time_being_in_top_k(real_process, target_wall_no_offset, 1, 24., pi))
 
-        print('')
+        # print('')
 
-    print('Finished:')
-    print('Results: Now: %f, Before: %f' % (sum(now), sum(before)))
+    # print('Finished.')
+    # print('Results: Now: %f, Before: %f' % (sum(now), sum(before)))
+    return now, before
+

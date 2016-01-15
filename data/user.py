@@ -119,6 +119,7 @@ class User:
         if self._wall_tweet_list is not None and excluded_user_id == self._excluded_user_in_wall:
             return self._wall_tweet_list
 
-        self._wall_tweet_list = models.TweetList(self._repo.get_user_wall(self.user_id(), excluded_user_id))
+        wall = self._repo.get_user_wall(self.user_id(), excluded_user_id)
+        self._wall_tweet_list = models.TweetList(wall)
         self._excluded_user_in_wall = excluded_user_id
         return self._wall_tweet_list

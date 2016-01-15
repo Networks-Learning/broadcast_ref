@@ -44,12 +44,19 @@ class HDFSUserRepository(SQLiteUserRepository):
         return self._loader.get_data(user_id)
 
     def get_user_wall(self, user_id, excluded=0):
-        final_list = []
-
-        for followee in self.get_user_followees(user_id):
+        total_len = 0
+        followees = self.get_user_followees(user_id)
+        for followee in followees:
             if followee == excluded:
                 continue
-            final_list += self.get_user_tweets(followee)
-
+            total_len += len(self.get_user_tweets(followee))
+            
+        final_list = [0] * total_len
+        ind = 0
+        for follower in followees:
+            lst = self.get_user_tweets(followee)
+            final_list[ind:(ind+len(lst))] = lst
+            ind += len(lst)
+            
         final_list.sort()
         return final_list

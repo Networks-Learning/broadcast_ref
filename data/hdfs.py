@@ -19,4 +19,5 @@ class HDFSLoader:
             self.files[i].close()
 
     def get_data(self, user_id):
-        return self.files[int(user_id / 40)][get_group(user_id) + '/tweets'][:]
+        a = int(70000000 / 40)
+        return self.files[int(user_id / a)][get_group(user_id) + '/tweets'][:]

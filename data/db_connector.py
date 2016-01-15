@@ -5,7 +5,7 @@ class DbConnection:
     def __init__(self):
         self.con = sqlite3.connect(':memory:')
         cur = self.con.cursor()
-        cur.execute('attach database "/dev/shm/db.sqlite3" as db;')
+        cur.execute('attach database "/dev/shm/db2.sqlite3" as db;')
         cur.execute('attach database "/dev/shm/links.sqlite3" as li;')
         cur.close()
 

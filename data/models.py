@@ -212,22 +212,22 @@ class TweetList(ITweetList):
         Time is in unix timestamp format, and so is in seconds precision
         :param times: time list, can be none, if ndarray remains the same
         """
-        self.tweet_times = [] if times is None else np.array(times)
+        self._tweet_times = [] if times is None else np.array(times)
 
     def __len__(self):
-        return len(self.tweet_times)
+        return len(self._tweet_times)
 
     def __getitem__(self, item):
-        return self.tweet_times[item]
+        return self._tweet_times[item]
 
     def sort(self):
-        self.tweet_times.sort()
+        self._tweet_times.sort()
 
     def get_slice_index_left(self, time_ts):
-        return bisect.bisect_left(self.tweet_times, time_ts)
+        return bisect.bisect_left(self._tweet_times, time_ts)
 
     def get_slice_index_right(self, time_ts):
-        return bisect.bisect_right(self.tweet_times, time_ts)
+        return bisect.bisect_right(self._tweet_times, time_ts)
 
 
 class TweetListView(ITweetList):

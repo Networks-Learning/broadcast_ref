@@ -70,8 +70,7 @@ class User:
         return followers
 
     def set_follower_weight(self, follower, weight):
-        if self._followers_weights is None:
-            self.followers_weights()
+        self.followers_weights()
 
         if isinstance(follower, User):
             self._followers_weights[follower.user_id()] = weight
@@ -79,8 +78,7 @@ class User:
             self._followers_weights[follower] = weight
 
     def get_follower_weight(self, follower):
-        if self._followers_weights is None:
-            self.followers_weights()
+        self.followers_weights()
 
         if isinstance(follower, User):
             return self._followers_weights[follower.user_id()]

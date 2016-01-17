@@ -1,14 +1,12 @@
 from __future__ import division
-
 import bisect
 import datetime
 from math import ceil, floor
 from pprint import pprint
 import random
-
 import numpy as np
-
 from util.cal import unix_timestamp
+from util.decorators import cache_enabled
 
 
 class Intensity:
@@ -84,86 +82,61 @@ class Intensity:
         return ', '.join(['(%.3f, %.2f)' % (item['rate'], item['length']) for item in self.intensity])
 
 
-class TweetList:
-    def __init__(self, times=None, build_index=True, sort=True, index=None):
-        """
-        Time is in unix timestamp format, and so is in seconds precision
-        :param times: time list, can be none, if ndarray remains the same
-        """
-        self.tweet_times = [] if times is None else np.array(times)
-        self.index = {} if (build_index is False or index is None) else index
-        self.index_keys = [] if self.index is {} else self.index.keys()
-
-        self._intensity_cache_conf = None
-        self._intensity_cache = None
-        self._conn_prob_cache_conf = None
-        self._conn_prob_cache = None
-
-        if sort:
-            self.sort()
-        if build_index:
-            self.build_index()
-
-    def __str__(self):
-        return '%d tweets: ' % len(self.tweet_times) + str(self.tweet_times)
+class ITweetList(object):
+    _current = 0  # used in iterator
 
     def __getitem__(self, item):
-        return self.tweet_times[item]
+        raise NotImplementedError()
 
-    def build_index(self):
-        if len(self.tweet_times) is 0:
-            return
+    def __len__(self):
+        raise NotImplementedError()
 
-        last_entry = None
-        for i in range(len(self.tweet_times)):
-            start_of_day = int(self.tweet_times[i] / 86400) * 86400
-            if start_of_day not in self.index:
-                self.index[start_of_day] = {'start': i, 'len': 1}
-                if last_entry is not None:
-                    self.index[last_entry[0]]['len'] = i - last_entry[1]
-                last_entry = (start_of_day, i)
+    def __iter__(self):
+        self._current = 0
+        return self
 
-        self.index[last_entry[0]]['len'] = len(self.tweet_times) - last_entry[1]
-        self.index_keys = self.index.keys()
-        self.index_keys.sort()
-
-    def sort(self):
-        self.tweet_times.sort()
+    def next(self):
+        if self._current >= len(self):
+            raise StopIteration
+        else:
+            self._current += 1
+            return self[self._current - 1]
 
     def sublist(self, start_date=None, end_date=None):
         """
-        :param start_date: The start of time that we want to calculate (should be start of a day)
-        :param end_date: The end of time that we want to calculate (should be start of a day)
-        :return: a TweetList with tweets in range [start_date, end_date] excluding the end_date itself
+        :param start_date: The start of time that we want to slice (should be start of a day)
+        :param end_date: The end of time that we want to slice (should be start of a day)
+        :return: a TweetListView with tweets in range [start_date, end_date] "excluding" the end_date itself
         """
-        if start_date is None:
-            start_date = datetime.datetime.fromtimestamp(0)
-        if end_date is None:
-            end_date = datetime.datetime.fromtimestamp(max([0] + self.tweet_times[-1]))
 
-        start_unix = unix_timestamp(start_date)
-        end_unix = unix_timestamp(end_date)
+        start_unix = unix_timestamp(start_date, default_ts=0)
+        end_unix = unix_timestamp(end_date, default_ts=max([0] + self[-1]))
 
-        start = bisect.bisect_left(self.index_keys, start_unix)  # index in index_keys
-        end = bisect.bisect_left(self.index_keys, end_unix)  # index in index_keys
+        starting_tweet_index = self.get_slice_index_left(start_unix)
+        ending_tweet_index = self.get_slice_index_right(end_unix)
 
-        ending_tweet_index = len(self.tweet_times) if end == len(self.index_keys) \
-            else self.index[self.index_keys[end]]['start']
+        return TweetListView(self,
+                             offset=starting_tweet_index,
+                             size=ending_tweet_index - starting_tweet_index)
 
-        starting_tweet_index = len(self.tweet_times) if start == len(self.index_keys) \
-            else self.index[self.index_keys[start]]['start']
+    def get_slice_index_left(self, time_ts):
+        """ Return LOCAL index of slicing to the left """
+        raise NotImplementedError()
 
-        # todo: check if indexing gets incorrect during sub-listing (needs a shift)
-        return TweetList(self.tweet_times[starting_tweet_index:ending_tweet_index], index=self.index, build_index=False)
+    def get_slice_index_right(self, time_ts):
+        """ Return LOCAL index of slicing to the right """
+        raise NotImplementedError()
 
-    def daily_tweets(self, date):
-        key = int(unix_timestamp(date) / 86400) * 86400
-        if key in self.index:
-            return TweetList(
-                self.tweet_times[self.index[key]['start']:(self.index[key]['start'] + self.index[key]['len'])])
-        else:
-            return TweetList([])
+    def get_day_tweets(self, date):
+        start_ts = int(unix_timestamp(date) / 86400) * 86400
+        end_ts = start_ts + 86400
 
+        slice_left = self.get_slice_index_left(start_ts)
+        slice_right = self.get_slice_index_right(end_ts)
+
+        return TweetListView(self, slice_left, slice_right - slice_left)
+
+    @cache_enabled
     def get_periodic_intensity(self, period_length=24 * 7, time_slots=None):
         """
         :param period_length: in hours, default is one week (must be an integer if time_slots is None)
@@ -171,105 +144,126 @@ class TweetList:
         :return: intensity in the period length (returnes the cached version if possible)
         """
 
-        if self._intensity_cache_conf is not None and \
-                        self._intensity_cache_conf['plen'] == period_length and \
-                        self._intensity_cache_conf['tslots'] == time_slots:
-            return self._intensity_cache
-        else:
-            self._intensity_cache_conf = {'plen': period_length, 'tslots': time_slots}
-
         if time_slots is None:
             time_slots = [1.] * period_length
 
-        assert sum(time_slots) == period_length
-
         tweets_per_slot = [0] * len(time_slots)
 
-        if len(self.tweet_times) is 0:
+        if len(self) is 0:
             intensity = Intensity()
             for i in range(len(time_slots)):
                 intensity.append(rate=0., length=time_slots[i])
             return intensity
 
-        total_time = (max(self.tweet_times) - min(self.tweet_times)) / 3600.
+        total_time = (self[-1] - self[0]) / 3600.
         total_number_of_periods = ceil(total_time / period_length)
         if total_number_of_periods == 0:
             total_number_of_periods = 1
 
-        for time in self.tweet_times:
-            tweets_per_slot[find_interval(time, period_length, time_slots)] += 1
+        for time in self:
+            tweets_per_slot[ITweetList.find_interval(time, period_length, time_slots)] += 1
 
         intensity = Intensity()
 
         for i in range(len(time_slots)):
             intensity.append(rate=tweets_per_slot[i] / total_number_of_periods / time_slots[i],
                              length=time_slots[i])
-
-        self._intensity_cache = intensity
         return intensity
 
+    @cache_enabled
     def get_connection_probability(self, period_length=24 * 7, time_slots=None):
         """
         :param period_length: in hours, default is one week (must be an integer if time_slots is None)
         :param time_slots: if not provided, default is equal time slots of one hour
         :return: probability of being online in each time slot during period length (cache support)
         """
-        if self._conn_prob_cache_conf is not None and \
-                        self._conn_prob_cache_conf['plen'] == period_length and \
-                        self._conn_prob_cache_conf['tslots'] == time_slots:
-            return self._conn_prob_cache
-        else:
-            self._conn_prob_cache_conf = {'plen': period_length, 'tslots': time_slots}
 
         if time_slots is None:
             time_slots = [1.] * period_length
 
-        assert sum(time_slots) == period_length
+        if len(self) is 0:
+            return [0.] * len(time_slots)
 
-        if len(self.tweet_times):
-            bags = [None] * len(time_slots)
-            for i in range(len(time_slots)):
-                bags[i] = set()
+        bags = [None] * len(time_slots)
+        for i in range(len(time_slots)):
+            bags[i] = set()
 
-            max_period_id, min_period_id = 0, 100000
+        max_period_id, min_period_id = 0, 100000
 
-            for time in self.tweet_times:
-                period_id = int(time / period_length / 3600)
-                bags[find_interval(time, period_length, time_slots)].add(period_id)
+        for time in self:
+            period_id = int(time / period_length / 3600)
+            bags[ITweetList.find_interval(time, period_length, time_slots)].add(period_id)
 
-                max_period_id = period_id if max_period_id < period_id else max_period_id
-                min_period_id = period_id if min_period_id > period_id else min_period_id
+            max_period_id = period_id if max_period_id < period_id else max_period_id
+            min_period_id = period_id if min_period_id > period_id else min_period_id
 
-            period_count = max_period_id - min_period_id + 1
+        period_count = max_period_id - min_period_id + 1
+        return [len(bag) / period_count for bag in bags]
 
-            self._conn_prob_cache = [len(bag) / period_count for bag in bags]
+    @staticmethod
+    def find_interval(tweet_time, period_length, time_slots):
+        # With assumption of equal time intervals...
+        return int(floor((tweet_time % (period_length * 3600)) / (3600. * time_slots[0])))
+
+
+class TweetList(ITweetList):
+    def __init__(self, times=None, build_index=True, sort=True, index=None):
+        """
+        Time is in unix timestamp format, and so is in seconds precision
+        :param times: time list, can be none, if ndarray remains the same
+        """
+        self.tweet_times = [] if times is None else np.array(times)
+
+    def __len__(self):
+        return len(self.tweet_times)
+
+    def __getitem__(self, item):
+        return self.tweet_times[item]
+
+    def sort(self):
+        self.tweet_times.sort()
+
+    def get_slice_index_left(self, time_ts):
+        return bisect.bisect_left(self.tweet_times, time_ts)
+
+    def get_slice_index_right(self, time_ts):
+        return bisect.bisect_right(self.tweet_times, time_ts)
+
+
+class TweetListView(ITweetList):
+
+    def __init__(self, tweet_list, offset=0, size=-1):
+        """
+        :type tweet_list: ITweetList
+        """
+        self.tweet_list = tweet_list
+        self._offset = offset
+        self._size = size if size >= 0 else (len(tweet_list) - offset)
+
+    def __len__(self):
+        return self._size
+
+    def __getitem__(self, item):
+        if item >= self._size or item < -self._size:
+            raise IndexError('Index out of bounds for TweetListView')
+
+        if item >= 0:
+            return self.tweet_list[item + self._offset]
         else:
-            self._conn_prob_cache = [0.] * len(time_slots)
+            return self.tweet_list[self._offset + self._size + item]
 
-        return self._conn_prob_cache
+    def get_slice_index_right(self, time_ts):
+        ind = self.tweet_list.get_slice_index_right(time_ts) - self._offset
+        if ind < 0:
+            return 0
+        if ind >= self._size:
+            return self._size
+        return ind
 
-
-def find_interval(tweet_time, period_length, time_slots):
-    # With assumption of equal time intervals...
-    return int(floor((tweet_time % (period_length * 3600)) / (3600. * time_slots[0])))
-
-
-def main():
-    l = [1168573801, 1168616489, 1168617290, 1168630416,
-         1168811197,
-         1168837946,
-         1168913318, 1168986092,
-         1169089667, 1169101612,
-         1169183029,
-         1169262913, 1169323501,
-         1169355915, 1169360554, 1169395149, 1169401647, ]
-
-    pprint([str(x) + ' ' + str(datetime.datetime.fromtimestamp(x)) for x in l])
-    t = TweetList(l)
-    pprint(t.index)
-    print(t.daily_tweets(datetime.datetime.fromtimestamp(1169164800)))
-    print(t.sublist(datetime.datetime.fromtimestamp(1168616489), datetime.datetime.fromtimestamp(1169251200)))
-
-
-if __name__ == '__main__':
-    main()
+    def get_slice_index_left(self, time_ts):
+        ind = self.tweet_list.get_slice_index_left(time_ts) - self._offset
+        if ind < 0:
+            return 0
+        if ind >= self._size:
+            return self._size
+        return ind

@@ -53,16 +53,15 @@ class TestTweetList(unittest.TestCase):
                             unix_timestamp(datetime(2000, 10, 6, 23, 0, 0)),
                             unix_timestamp(datetime(2000, 10, 7, 23, 0, 0))]
 
-    def test_sub_listing(self):
+    def test_sub_view(self):
         tweet_list = TweetList(self.tweet_times)
         sub_list = tweet_list.sublist(start_date=datetime(2000, 10, 2),
                                       end_date=datetime(2000, 10, 6))
 
-        self.assertEqual(len(sub_list.tweet_times), 4)
-        print(tweet_list.index)
-        daily = sub_list.daily_tweets(datetime(2000, 10, 2))
+        self.assertEqual(len(sub_list), 4)
+        daily = sub_list.get_day_tweets(datetime(2000, 10, 2))
 
-        self.assertListEqual(list(daily.tweet_times), self.tweet_times[1:3])
+        self.assertListEqual(list(daily), self.tweet_times[1:3])
 
     def tearDown(self):
         pass

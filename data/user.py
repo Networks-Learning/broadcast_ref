@@ -4,18 +4,11 @@ import sys
 from data import models
 import numpy as np
 
+from util.decorators import cache_enabled
+
 
 class User:
     _user_id = None
-    _tweet_list = None
-    _intensity = None
-    _probability = None
-    _wall_tweet_list = None
-    _wall_intensity = None
-    _excluded_user_in_wall = None
-    _followees = None
-    _followers = None
-    _followers_weights = None
     _repo = None
 
     options = {}
@@ -47,43 +40,34 @@ class User:
     def user_id(self):
         return self._user_id
 
+    @cache_enabled
     def tweet_list(self):
-        if self._tweet_list is not None:
-            return self._tweet_list
+        return models.TweetList(self._repo.get_user_tweets(self.user_id()))
 
-        self._tweet_list = models.TweetList(self._repo.get_user_tweets(self.user_id()))
-        return self._tweet_list
-
+    @cache_enabled
     def followees(self):
-        if self._followees is not None:
-            return self._followees
-
-        self._followees = []
+        followees = []
 
         for followee in self._repo.get_user_followees(self.user_id()):
             followee_user = User(followee, self._repo, **self.options)
-            self._followees.append(followee_user)
+            followees.append(followee_user)
 
-        return self._followees
+        return followees
 
+    @cache_enabled
     def followers(self):
-        if self._followers is not None:
-            return self._followers
-
-        self._followers = []
+        followers = []
 
         for follower in self._repo.get_user_followers(self.user_id()):
             follower_user = User(follower, self._repo, **self.options)
 
             follower_followee_count = len(follower_user.followees())
             if follower_followee_count <= self.options['max_followee_per_follower']:
-                self._followers.append(follower_user)
+                followers.append(follower_user)
             else:
-                # sys.stderr.write('Dropped user %d, because he had %d followers!\n' %
-                #                 (follower_user.user_id(), follower_followee_count))
                 del follower_user
 
-        return self._followers
+        return followers
 
     def set_follower_weight(self, follower, weight):
         if self._followers_weights is None:
@@ -103,23 +87,17 @@ class User:
         else:
             return self._followers_weights[follower]
 
+    @cache_enabled
     def followers_weights(self):
-        if self._followers_weights is not None:
-            return self._followers_weights
-
-        self._followers_weights = {}
+        followers_weights = {}
 
         follower_count = len(self.followers())
         for follower in self.followers():
-            self._followers_weights[follower.user_id()] = 1. / follower_count
+            followers_weights[follower.user_id()] = 1. / follower_count
 
-        return self._followers_weights
+        return followers_weights
 
+    @cache_enabled
     def wall_tweet_list(self, excluded_user_id=0):
-        if self._wall_tweet_list is not None and excluded_user_id == self._excluded_user_in_wall:
-            return self._wall_tweet_list
-
         wall = self._repo.get_user_wall(self.user_id(), excluded_user_id)
-        self._wall_tweet_list = models.TweetList(wall)
-        self._excluded_user_in_wall = excluded_user_id
-        return self._wall_tweet_list
+        return models.TweetList(wall)

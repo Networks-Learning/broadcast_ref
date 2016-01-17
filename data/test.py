@@ -14,9 +14,8 @@ class TestDbConnection(unittest.TestCase):
         self.cur = self.conn.get_cursor()
 
     def test_connection(self):
-        tables = self.cur.execute("""SELECT name FROM sqlite_master WHERE type='table';""").fetchall()
-        self.assertIn('db.tweets', tables)
-        self.assertIn('db.links', tables)
+        tables = self.cur.execute("""PRAGMA database_list;""").fetchall()
+        self.assertEqual(len(tables), 3)
 
     def test_db_data(self):
         data = self.cur.execute("""SELECT tweet_time FROM db.tweets WHERE user_id=12 LIMIT 1;""").fetchall()
@@ -36,7 +35,7 @@ class TestHDFSLoader(unittest.TestCase):
 
     def test_loaded_data(self):
         self.assertListEqual(
-            self.loader.get_data(5320502),  # data for @sadjad
+            list(self.loader.get_data(5320502)),  # data for @sadjad
             [1177066462,1179306824,1180405750,1180695756,1228836295,1228980215,1229602451]
         )
 
@@ -60,9 +59,10 @@ class TestTweetList(unittest.TestCase):
                                       end_date=datetime(2000, 10, 6))
 
         self.assertEqual(len(sub_list.tweet_times), 4)
+        print(tweet_list.index)
         daily = sub_list.daily_tweets(datetime(2000, 10, 2))
 
-        self.assertListEqual(daily.tweet_times, self.tweet_times[1:3])
+        self.assertListEqual(list(daily.tweet_times), self.tweet_times[1:3])
 
     def tearDown(self):
         pass

@@ -16,12 +16,18 @@ class User:
     _followees = None
     _followers = None
     _followers_weights = None
-    _conn = None
+    _repo = None
 
     options = {}
 
-    def __init__(self, user_id, conn, **kwargs):
-        self._conn = conn
+    def __init__(self, user_id, repo, **kwargs):
+        """
+        :param user_id:
+        :type repo: data.user_repo.UserRepository
+        :param kwargs:
+        :return:
+        """
+        self._repo = repo
         self._user_id = user_id
 
         self.options['period_length'] = 24 * 7
@@ -45,11 +51,7 @@ class User:
         if self._tweet_list is not None:
             return self._tweet_list
 
-        cur = self._conn.get_cursor()
-        tweet_times = cur.execute('select tweet_time from db.tweets where user_id=?', (self._user_id,)).fetchall()
-        cur.close()
-
-        self._tweet_list = models.TweetList([t[0] for t in tweet_times])
+        self._tweet_list = models.TweetList(self._repo.get_user_tweets(self.user_id()))
         return self._tweet_list
 
     def followees(self):
@@ -58,13 +60,8 @@ class User:
 
         self._followees = []
 
-        cur = self._conn.get_cursor()
-        followees = cur.execute('select idb from li.links where ida=?', (self._user_id,)).fetchall()
-        cur.close()
-
-        for followee in followees:
-            followee_id = followee[0]
-            followee_user = User(followee_id, self._conn, **self.options)
+        for followee in self._repo.get_user_followees(self.user_id()):
+            followee_user = User(followee, self._repo, **self.options)
             self._followees.append(followee_user)
 
         return self._followees
@@ -75,13 +72,8 @@ class User:
 
         self._followers = []
 
-        cur = self._conn.get_cursor()
-        followers = cur.execute('select ida from li.links where idb=?', (self._user_id,)).fetchall()
-        cur.close()
-
-        for follower in followers:
-            follower_id = follower[0]
-            follower_user = User(follower_id, self._conn, **self.options)
+        for follower in self._repo.get_user_followers(self.user_id()):
+            follower_user = User(follower, self._repo, **self.options)
 
             follower_followee_count = len(follower_user.followees())
             if follower_followee_count <= self.options['max_followee_per_follower']:
@@ -127,12 +119,7 @@ class User:
         if self._wall_tweet_list is not None and excluded_user_id == self._excluded_user_in_wall:
             return self._wall_tweet_list
 
-        cur = self._conn.get_cursor()
-        tweets = cur.execute(
-            'SELECT tweet_time FROM db.tweets WHERE user_id IN (SELECT idb FROM li.links WHERE ida=? AND idb != ?)',
-            (self.user_id(), excluded_user_id)).fetchall()
-        cur.close()
-        self._wall_tweet_list = models.TweetList([tweet[0] for tweet in tweets])
+        wall = self._repo.get_user_wall(self.user_id(), excluded_user_id)
+        self._wall_tweet_list = models.TweetList(wall)
         self._excluded_user_in_wall = excluded_user_id
         return self._wall_tweet_list
-

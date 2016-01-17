@@ -25,4 +25,4 @@ def sampling(time_slots, weights, number):
         yr = random.random()
         if yr <= weights[find_position(xr, time_slots)]:
             nominated_list.append(xr)
-    return nominated_list
+        return nominated_list

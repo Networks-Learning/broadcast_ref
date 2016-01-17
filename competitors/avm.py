@@ -1,5 +1,4 @@
 from competitors.utils import find_position, sampling
-from data.db_connector import DbConnection
 from operator import truediv
 from data.models import *
 from data.user import *
@@ -7,7 +6,7 @@ from data.user import *
 __author__ = 'Rfun'
 
 
-def baseline(self, user, budget, upper_bounds, method, time_slots=None, offset=0):
+def baseline(user, budget, upper_bounds, method, time_slots=None, offset=0):
     if time_slots is None:
         time_slots = [1] * (len(upper_bounds))
     generated_points = []
@@ -50,11 +49,6 @@ def baseline(self, user, budget, upper_bounds, method, time_slots=None, offset=0
 
 
 def main():
-    conn = DbConnection()
-    # user = User(790728, conn, max_followee_per_follower=100)
-    # user = User(21629050, conn, max_followee_per_follower=100)
-    # user = User(20645419, conn, max_followee_per_follower=500)
-    # print user._followees
     pass
 
 if __name__ == '__main__':

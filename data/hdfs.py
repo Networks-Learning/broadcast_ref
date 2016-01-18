@@ -14,5 +14,14 @@ class HDFSLoader:
     def __del__(self):
         self.h5f.close()
 
-    def get_data(self, user_id):
-        return self.h5f[get_group(user_id) + '/tweets'][:]
+    def get_data(self, user_id, data):
+        return self.h5f[get_group(user_id) + '/' + data]
+
+    def get_tweets(self, user_id):
+        return self.get_data(user_id, 'tweets')
+
+    def get_followers(self, user_id):
+        return self.get_data(user_id, 'followers')
+
+    def get_followees(self, user_id):
+        return self.get_data(user_id, 'followees')

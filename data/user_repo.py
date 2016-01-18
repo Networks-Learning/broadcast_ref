@@ -1,15 +1,15 @@
-class UserRepository:
+class UserRepository(object):
     def get_user_tweets(self, user_id):
-        pass
+        raise NotImplementedError()
 
     def get_user_followers(self, user_id):
-        pass
+        raise NotImplementedError()
 
     def get_user_followees(self, user_id):
-        pass
+        raise NotImplementedError()
 
     def get_user_wall(self, user_id, excluded=0):
-        pass
+        raise NotImplementedError()
 
 
 class SQLiteUserRepository(UserRepository):
@@ -35,13 +35,18 @@ class SQLiteUserRepository(UserRepository):
         return [t[0] for t in l]
 
 
-class HDFSUserRepository(SQLiteUserRepository):
-    def __init__(self, hdfs_loader, conn):
-        SQLiteUserRepository.__init__(self, conn)
+class HDFSUserRepository(UserRepository):
+    def __init__(self, hdfs_loader):
         self._loader = hdfs_loader
 
     def get_user_tweets(self, user_id):
-        return self._loader.get_data(user_id)
+        return self._loader.get_tweets(user_id)
+
+    def get_user_followers(self, user_id):
+        return self._loader.get_followers(user_id)
+
+    def get_user_followees(self, user_id):
+        return self._loader.get_followees(user_id)
 
     def get_user_wall(self, user_id, excluded=0):
         total_len = 0
@@ -53,7 +58,9 @@ class HDFSUserRepository(SQLiteUserRepository):
             
         final_list = [0] * total_len
         ind = 0
-        for follower in followees:
+        for followee in followees:
+            if followee == excluded:
+                continue
             lst = self.get_user_tweets(followee)
             final_list[ind:(ind+len(lst))] = lst
             ind += len(lst)

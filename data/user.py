@@ -10,6 +10,7 @@ from util.decorators import cache_enabled
 class User:
     _user_id = None
     _repo = None
+    _followers_weights = None
 
     options = {}
 
@@ -85,15 +86,17 @@ class User:
         else:
             return self._followers_weights[follower]
 
-    @cache_enabled
     def followers_weights(self):
-        followers_weights = {}
+        if self._followers_weights is not None:
+            return self._followers_weights
+        
+        self._followers_weights = {}
 
         follower_count = len(self.followers())
         for follower in self.followers():
-            followers_weights[follower.user_id()] = 1. / follower_count
+            self._followers_weights[follower.user_id()] = 1. / follower_count
 
-        return followers_weights
+        return self._followers_weights
 
     @cache_enabled
     def wall_tweet_list(self, excluded_user_id=0):

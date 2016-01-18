@@ -9,15 +9,10 @@ def get_group(user_id):
 
 class HDFSLoader:
     def __init__(self):
-        self.files = [None] * 40
-        for i in range(40):
-            filename = '/dev/shm/hdfs/tweets_par_%d.h5' % i
-            self.files[i] = h5py.File(filename, 'r')
+        self.h5f = h5py.File('/dev/shm/tweets_all.h5', 'r')
 
     def __del__(self):
-        for i in range(40):
-            self.files[i].close()
+        self.h5f.close()
 
     def get_data(self, user_id):
-        a = int(70000000 / 40)
-        return self.files[int(user_id / a)][get_group(user_id) + '/tweets'][:]
+        return self.h5f[get_group(user_id) + '/tweets'][:]

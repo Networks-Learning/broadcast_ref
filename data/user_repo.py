@@ -67,3 +67,21 @@ class HDFSUserRepository(UserRepository):
             
         final_list.sort()
         return final_list
+
+
+class HDFSSQLiteUserRepository(SQLiteUserRepository, HDFSUserRepository):
+    def __init__(self, hdfs_loader, conn):
+        SQLiteUserRepository.__init__(self, conn)
+        self._loader = hdfs_loader
+
+    def get_user_followees(self, user_id):
+        return SQLiteUserRepository.get_user_followees(self, user_id)
+
+    def get_user_tweets(self, user_id):
+        return HDFSUserRepository.get_user_tweets(self, user_id)
+
+    def get_user_followers(self, user_id):
+        return SQLiteUserRepository.get_user_followers(self, user_id)
+
+    def get_user_wall(self, user_id, excluded=0):
+        return SQLiteUserRepository.get_user_wall(self, user_id, excluded)

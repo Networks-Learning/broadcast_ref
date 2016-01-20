@@ -110,7 +110,10 @@ class ITweetList(object):
         """
 
         start_unix = unix_timestamp(start_date, default_ts=0)
-        end_unix = unix_timestamp(end_date, default_ts=max([0] + self[-1]))
+        if len(self) is 0:
+            end_unix = unix_timestamp(end_date, default_ts=1254355200)
+        else:
+            end_unix = unix_timestamp(end_date, default_ts=max([0] + self[-1]))
 
         starting_tweet_index = self.get_slice_index_left(start_unix)
         ending_tweet_index = self.get_slice_index_right(end_unix)

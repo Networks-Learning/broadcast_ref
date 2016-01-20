@@ -33,7 +33,7 @@ def test_avm(test_start_date, test_end_date, user, test_intensity, iterations=1)
 
             simulated_process = generate_piecewise_constant_poisson_process(Intensity(test_intensity))
 
-            real_process = user.tweet_list().daily_tweets(week_start_day)
+            real_process = user.tweet_list().get_day_tweets(week_start_day)
             real_process = [(x - week_start_day_unix) / 3600. for x in real_process]
 
             # print("--> simulated process:")
@@ -46,7 +46,7 @@ def test_avm(test_start_date, test_end_date, user, test_intensity, iterations=1)
                 t_counter += 1
                 # show_progressbar(t_counter, len(user.followers()), target.user_id())
 
-                test_list = target.wall_tweet_list(excluded_user_id=user.user_id()).daily_tweets(week_start_day)
+                test_list = target.wall_tweet_list(excluded_user_id=user.user_id()).get_day_tweets(week_start_day)
 
                 if target.user_id() in pi_cache:
                     pi = pi_cache[target.user_id()]
@@ -59,7 +59,7 @@ def test_avm(test_start_date, test_end_date, user, test_intensity, iterations=1)
                             pi[j] = 1.
                     pi_cache[target.user_id()] = pi
 
-                target_wall_no_offset = [(x - week_start_day_unix) / 3600. for x in test_list.tweet_times]
+                target_wall_no_offset = [(x - week_start_day_unix) / 3600. for x in test_list]
 
                 now.append(time_being_in_top_k(simulated_process, target_wall_no_offset, 1, 24., pi))
                 before.append(time_being_in_top_k(real_process, target_wall_no_offset, 1, 24., pi))

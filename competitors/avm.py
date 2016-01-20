@@ -29,18 +29,20 @@ def baseline(user, budget, upper_bounds, method, time_slots=None, offset=0):
                 print 'started fetching for %d with %d followee' %(target.user_id(), len(target.followees()))
                 start = timeit.default_timer()
                 tweets = target.wall_tweet_list(user.user_id())
-                intensity = tweets.get_periodic_intensity().sub_intensity(offset, offset + total_time)
+                stop = timeit.default_timer()
+                print '%.2f time for fetching' %(stop - start)
+                print 'tweets: ', tweets
+                p_intensity = tweets.get_periodic_intensity()
+                intensity = p_intensity.sub_intensity(offset, offset + total_time)
 
                 for i in range(len(intensity.get_as_vector()[0])):
                     if intensity[i]['rate'] < 0.0001:  # escaping from division by zero
                         intensity[i]['rate'] = 0.0001
                 if method == 'pavm':
-                        onlinity_probability = tweets.get_connection_probability()[offset : offset + total_time]
+                        onlinity_probability = target.tweet_list().get_connection_probability()[offset : offset + total_time]
                         weights += map(truediv, onlinity_probability, intensity.get_as_vector()[0])
                 else:
                     weights += map(truediv, [1] * len(intensity), intensity.get_as_vector()[0])
-                stop = timeit.default_timer()
-                print '%2.f time for fetching' %(stop - start)
     while len(generated_points) < real_budget:
         nominated_list = sampling(time_slots, weights, real_budget - len(generated_points))
         for time in nominated_list:

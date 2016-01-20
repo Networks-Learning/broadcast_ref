@@ -222,6 +222,9 @@ class TweetList(ITweetList):
 
     def __getitem__(self, item):
         return self._tweet_times[item]
+    
+    def __str__(self):
+        return 'TweetList (%d tweets) %s' % (len(self), str(self._tweet_times))
 
     def sort(self):
         self._tweet_times.sort()

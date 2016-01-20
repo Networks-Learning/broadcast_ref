@@ -30,7 +30,8 @@ class SQLiteUserRepository(UserRepository):
 
     def get_user_wall(self, user_id, excluded=0):
         l = self._conn.get_cursor().execute(
-            'select tweet_time from db.tweets where user_id in (select idb from li.links where ida=? and idb != ?)',
+            'select tweet_time from db.tweets where user_id in (select idb from li.links where ida=? and idb != ?)'
+            'order by tweet_time',
             (user_id, excluded)).fetchall()
         return [t[0] for t in l]
 
@@ -62,7 +63,7 @@ class HDFSUserRepository(UserRepository):
             if followee == excluded:
                 continue
             lst = self.get_user_tweets(followee)
-            final_list[ind:(ind+len(lst))] = lst
+            final_list[ind:(ind+len(lst))] = lst[:]
             ind += len(lst)
             
         final_list.sort()
@@ -84,4 +85,4 @@ class HDFSSQLiteUserRepository(SQLiteUserRepository, HDFSUserRepository):
         return SQLiteUserRepository.get_user_followers(self, user_id)
 
     def get_user_wall(self, user_id, excluded=0):
-        return SQLiteUserRepository.get_user_wall(self, user_id, excluded)
+        return HDFSUserRepository.get_user_wall(self, user_id, excluded)

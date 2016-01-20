@@ -50,10 +50,6 @@ class User:
         followees = []
 
         for followee in self._repo.get_user_followees(self.user_id()):
-            # TODO: There are users in Links table that have no tweets and their ID is bigger than 70000000
-            if followee >= 70000000:
-                continue
-
             followee_user = User(followee, self._repo, **self.options)
             followees.append(followee_user)
 
@@ -64,10 +60,6 @@ class User:
         followers = []
 
         for follower in self._repo.get_user_followers(self.user_id()):
-            # TODO: There are users in Links table that have no tweets and their ID is bigger than 70000000
-            if follower >= 70000000:
-                continue
-
             follower_user = User(follower, self._repo, **self.options)
 
             follower_followee_count = len(follower_user.followees())

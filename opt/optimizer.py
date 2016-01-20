@@ -116,9 +116,10 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
             t_counter += 1
             print("\r[%% %.2f] processing %d" % (100.*t_counter/len(user.followers()), target.user_id()), end="")
 
-            target_wall_intensity = target.wall_tweet_list(excluded_user_id=user.user_id()).sublist(learn_start_date, learn_end_date)\
-                .get_periodic_intensity(period_length, time_slots) \
-                .sub_intensity(start_hour, end_hour)
+            target_wall_tlist = target.wall_tweet_list(excluded_user_id=user.user_id())
+            target_wall_tlist_sub = target_wall_tlist.sublist(learn_start_date, learn_end_date)
+            target_wall_intensity_all = target_wall_tlist_sub.get_periodic_intensity(period_length, time_slots)
+            target_wall_intensity = target_wall_intensity_all.sub_intensity(start_hour, end_hour)
 
             followers_wall_intensities.append(target_wall_intensity)
 

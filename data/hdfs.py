@@ -15,7 +15,10 @@ class HDFSLoader:
         self.h5f.close()
 
     def get_data(self, user_id, data):
-        return self.h5f[get_group(user_id) + '/' + data]
+        try:
+            return self.h5f[get_group(user_id) + '/' + data]
+        except KeyError:
+            print('ERR: [%s] %d' % (data, user_id))
 
     def get_tweets(self, user_id):
         return self.get_data(user_id, 'tweets')

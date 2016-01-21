@@ -4,10 +4,10 @@ import numpy as np
 from util.cal import unix_timestamp
 from util.decorators import cache_enabled
 
-import helper
 import pyximport
-pyximport.install(setup_args={"include_dirs":np.get_include()},
+pyximport.install(setup_args={"include_dirs": np.get_include()},
                   reload_support=True)
+import helper
 
 
 class ITweetList(object):
@@ -169,4 +169,4 @@ class TweetListView(ITweetList):
         return ind
 
     def _get_tweet_list(self):
-        return self.tweet_list._get_tweet_list()
+        return self.tweet_list._get_tweet_list()[self._offset:self._offset + self._size]

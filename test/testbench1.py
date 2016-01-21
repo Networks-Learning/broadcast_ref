@@ -53,7 +53,7 @@ def test_avm(test_start_date, test_end_date, user, test_intensity, iterations=1)
 
                     pi = np.zeros(24)
                     for j in range(24):
-                        if tweet_bags[j]['rate'] > 0:
+                        if tweet_bags[j] > 0:
                             pi[j] = 1.
                     pi_cache[target.user_id()] = pi
 

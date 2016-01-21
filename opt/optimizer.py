@@ -113,7 +113,7 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
 
     no_bad_users = 0
     if upper_bounds is None:
-        upper_bounds = np.zeros(oi.size())
+        upper_bounds = np.zeros(len(oi))
         followers_wall_intensities = []
 
         t_counter = 0.
@@ -130,7 +130,7 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
             followers_wall_intensities.append(target_wall_intensity)
 
             _max = max([0] + [oi[i] / target_wall_intensity[i]
-                              for i in range(oi.size()) if target_wall_intensity[i] != 0.0])
+                              for i in range(len(oi)) if target_wall_intensity[i] != 0.0])
 
             if _max == 0:
                 no_bad_users += 1

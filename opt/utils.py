@@ -53,7 +53,7 @@ def expected_f_trapz(lambda1, lambda2, k, h0=None, pi=None):
 
     e_f = 0
     sample_count = 11
-    for i in range(lambda2.size()):
+    for i in range(len(lambda2)):
         samples = np.linspace(0, 1, sample_count)
         values = [f_single_valued(sample, k, lambda2[i], lambda1[i], h0) for sample in samples]
         e_f += pi[i] * trapz(values, samples)
@@ -76,7 +76,7 @@ def gradient_top_k(lambda1, lambda2, k, h0=None, pi=None):
 
     h0 = [0.] * k if h0 is None else h0
 
-    n = lambda2.size()
+    n = len(lambda2)
     grad = np.array([0.] * n)
     epsilon = 0.0001
 
@@ -102,7 +102,7 @@ def f_top_one(t, b, c, h):
 
 
 def expected_f_top_one(lambda1, lambda2, pi):
-    M = lambda1.size()
+    M = len(lambda2)
     e_f = 0
     h = 0
     for m in range(M):
@@ -121,7 +121,7 @@ def expected_f_top_one(lambda1, lambda2, pi):
 
 
 def h_va_shoraka(lambda1, lambda2):
-    M = lambda1.size()
+    M = len(lambda1)
     h = np.zeros(M + 1)
     dh_dc = np.zeros((M, M))
     q = np.zeros(M)
@@ -151,7 +151,7 @@ def h_va_shoraka(lambda1, lambda2):
 
 
 def gradient_top_one(lambda1, lambda2, pi):
-    M = lambda1.size()
+    M = len(lambda1)
     grad = np.zeros(M)
     h, dh_dc = h_va_shoraka(lambda1, lambda2)
 
@@ -186,7 +186,7 @@ def weighted_top_one(lambda1, lambda2_list, conn_probs, weights, *args):
 
 
 def weighted_top_one_grad(lambda1, lambda2_list, conn_probs, weights, *args):
-    s = np.zeros(lambda1.size())
+    s = np.zeros(len(lambda1))
 
     for i in range(len(lambda2_list)):
         s += gradient_top_one(lambda1, lambda2_list[i], conn_probs[i]) * weights[i]
@@ -201,7 +201,7 @@ def weighted_top_one_k(lambda1, lambda2_list, conn_probs, weights, *args):
 
 
 def weighted_top_one_k_grad(lambda1, lambda2_list, conn_probs, weights, *args):
-    s = np.zeros(lambda1.size())
+    s = np.zeros(len(lambda1))
 
     for i in range(len(lambda2_list)):
         s += gradient_top_k(lambda1, lambda2_list[i], 1, pi=conn_probs[i]) * weights[i]
@@ -235,7 +235,7 @@ def weighted_top_k(lambda1, lambda2_list, conn_probs, weights, k, *args):
 
 
 def weighted_top_k_grad(lambda1, lambda2_list, conn_probs, weights, k, *args):
-    s = np.zeros(lambda1.size())
+    s = np.zeros(len(lambda1))
 
     for i in range(len(lambda2_list)):
         s += gradient_top_k(lambda1, lambda2_list[i], k, pi=conn_probs[i]) * weights[i]

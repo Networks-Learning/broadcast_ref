@@ -2,7 +2,6 @@ from __future__ import division
 
 import numpy as np
 cimport numpy as np
-from libc.math cimport floor
 
 
 def get_intensity_cy(np.ndarray times, int period_length):

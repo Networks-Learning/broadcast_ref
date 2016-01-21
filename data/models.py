@@ -8,8 +8,12 @@ import numpy as np
 from util.cal import unix_timestamp
 from util.decorators import cache_enabled
 
-import pyximport; pyximport.install()
+import pyximport
+pyximport.install(setup_args={"include_dirs":np.get_include()},
+                  reload_support=True)
+
 import helper
+
 
 class Intensity:
     """
@@ -163,8 +167,7 @@ class ITweetList(object):
                 intensity.append(rate=0., length=time_slots[i])
             return intensity
 
-        total_time = (self[-1] - self[0]) / 3600.
-        total_number_of_periods = max(ceil(total_time / period_length), 1)
+        total_number_of_periods = int(self[-1] / 3600 / period_length) - int(self[0] / 3600 / period_length) + 1
 
         tweets_per_slot = helper.get_intensity_cy(self._get_tweet_list(), period_length)
 
@@ -191,7 +194,7 @@ class ITweetList(object):
 
         bags = helper.get_connection_bags_cy(self._get_tweet_list(), period_length)
 
-        period_count = max(ceil((self[-1] - self[0]) / (period_length * 3600)), 1)
+        period_count = int(self[-1] / 3600 / period_length) - int(self[0] / 3600 / period_length) + 1
         return [bag / period_count for bag in bags]
 
     @staticmethod

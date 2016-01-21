@@ -65,6 +65,10 @@ class TestTweetList(unittest.TestCase):
 
         self.assertListEqual(list(daily), self.tweet_times[1:3])
 
+    def test_intensity(self):
+        tweet_list = TweetList([2880, 3240, 3960, 8640, 606600, 607320])
+        print(tweet_list.get_periodic_intensity().get_as_vector()[0])
+
     def tearDown(self):
         pass
 

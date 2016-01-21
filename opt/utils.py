@@ -192,14 +192,14 @@ def gradient_top_one(lambda1, lambda2, pi):
     return grad
 
 
-def weighted_top_one(lambda1, lambda2_list, conn_probs, weights):
+def weighted_top_one(lambda1, lambda2_list, conn_probs, weights, *args):
     s = 0
     for i in range(len(lambda2_list)):
         s += expected_f_top_one(lambda1, lambda2_list[i], conn_probs[i]) * weights[i]
     return s
 
 
-def weighted_top_one_grad(lambda1, lambda2_list, conn_probs, weights):
+def weighted_top_one_grad(lambda1, lambda2_list, conn_probs, weights, *args):
     s = np.zeros(lambda1.size())
 
     for i in range(len(lambda2_list)):
@@ -207,14 +207,14 @@ def weighted_top_one_grad(lambda1, lambda2_list, conn_probs, weights):
     return s
 
 
-def weighted_top_one_k(lambda1, lambda2_list, conn_probs, weights):
+def weighted_top_one_k(lambda1, lambda2_list, conn_probs, weights, *args):
     s = 0
     for i in range(len(lambda2_list)):
         s += expected_f_top_k(lambda1, lambda2_list[i], 1, pi=conn_probs[i]) * weights[i]
     return s
 
 
-def weighted_top_one_k_grad(lambda1, lambda2_list, conn_probs, weights):
+def weighted_top_one_k_grad(lambda1, lambda2_list, conn_probs, weights, *args):
     s = np.zeros(lambda1.size())
 
     for i in range(len(lambda2_list)):
@@ -222,14 +222,14 @@ def weighted_top_one_k_grad(lambda1, lambda2_list, conn_probs, weights):
     return s
 
 
-def max_min_top_one(lambda1, lambda2_list, conn_probs, weights):
+def max_min_top_one(lambda1, lambda2_list, conn_probs, weights, *args):
     s = np.inf
     for i in range(len(lambda2_list)):
         s = min(s, expected_f_top_one(lambda1, lambda2_list[i], conn_probs[i]))
     return s
 
 
-def max_min_top_one_grad(lambda1, lambda2_list, conn_probs, weights):
+def max_min_top_one_grad(lambda1, lambda2_list, conn_probs, weights, *args):
     x = np.inf
     ind = 0
     for i in range(len(lambda2_list)):
@@ -239,3 +239,18 @@ def max_min_top_one_grad(lambda1, lambda2_list, conn_probs, weights):
             ind = i
 
     return gradient_top_one(lambda1, lambda2_list[ind], conn_probs[ind])
+
+
+def weighted_top_k(lambda1, lambda2_list, conn_probs, weights, k, *args):
+    s = 0
+    for i in range(len(lambda2_list)):
+        s += expected_f_top_k(lambda1, lambda2_list[i], k, pi=conn_probs[i]) * weights[i]
+    return s
+
+
+def weighted_top_k_grad(lambda1, lambda2_list, conn_probs, weights, k, *args):
+    s = np.zeros(lambda1.size())
+
+    for i in range(len(lambda2_list)):
+        s += gradient_top_k(lambda1, lambda2_list[i], k, pi=conn_probs[i]) * weights[i]
+    return s

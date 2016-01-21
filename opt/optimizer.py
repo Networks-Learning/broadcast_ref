@@ -85,7 +85,8 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
                        start_hour=0, end_hour=24,
                        learn_start_date=None, learn_end_date=None,
                        util=utils.weighted_top_one, util_gradient=utils.weighted_top_one_grad,
-                       threshold=0.005):
+                       threshold=0.005,
+                       extra_opt=None):
     """
     :type user: User
     :type upper_bounds: np.ndarray
@@ -95,6 +96,9 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
     :type learn_end_date: datetime
     :return: optimized intensity with respect to parameters given
     """
+
+    if extra_opt is None:
+        extra_opt = []
 
     if time_slots is None:
         time_slots = [1.] * period_length
@@ -157,9 +161,9 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
     print(no_bad_users)
 
     def _util(x):
-        return util(Intensity(x), followers_wall_intensities, followers_conn_prob, followers_weights)
+        return util(Intensity(x), followers_wall_intensities, followers_conn_prob, followers_weights, *extra_opt)
 
     def _util_grad(x):
-        return util_gradient(Intensity(x), followers_wall_intensities, followers_conn_prob, followers_weights)
+        return util_gradient(Intensity(x), followers_wall_intensities, followers_conn_prob, followers_weights, *extra_opt)
 
     return optimize(_util, _util_grad, budget, upper_bounds, threshold=threshold)

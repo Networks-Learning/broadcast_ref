@@ -8,10 +8,25 @@ import timeit
 __author__ = 'Rfun'
 
 
+METHOD_RAVM = 0
+METHOD_IAVM = 1
+METHOD_PAVM = 2
+
+
 def baseline(user, budget, upper_bounds, method, time_slots=None, offset=0):
+    """
+    :param user: Us
+    :type user: User
+    :param method: one of mentioned methods
+    :param offset: offset to the generated tweet_list to match the real times of tweets
+    :return:
+    """
+
     if time_slots is None:
         time_slots = [1] * (len(upper_bounds))
+
     generated_points = []
+
     slots = [0] * len(time_slots)
     assert len(time_slots) == len(upper_bounds)
 

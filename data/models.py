@@ -159,9 +159,7 @@ class ITweetList(object):
             return intensity
 
         total_time = (self[-1] - self[0]) / 3600.
-        total_number_of_periods = ceil(total_time / period_length)
-        if total_number_of_periods == 0:
-            total_number_of_periods = 1
+        total_number_of_periods = max(ceil(total_time / period_length), 1)
 
         for time in self:
             tweets_per_slot[ITweetList.find_interval(time, period_length, time_slots)] += 1
@@ -187,21 +185,20 @@ class ITweetList(object):
         if len(self) is 0:
             return [0.] * len(time_slots)
 
-        bags = [None] * len(time_slots)
-        for i in range(len(time_slots)):
-            bags[i] = set()
+        bags = [0] * len(time_slots)
 
-        max_period_id, min_period_id = 0, 100000
-
+        prev_time = 0
         for time in self:
-            period_id = int(time / period_length / 3600)
-            bags[ITweetList.find_interval(time, period_length, time_slots)].add(period_id)
+            if time - prev_time < 3600 and time % 3600 > prev_time % 3600:
+                continue
 
-            max_period_id = period_id if max_period_id < period_id else max_period_id
-            min_period_id = period_id if min_period_id > period_id else min_period_id
+            interval = ITweetList.find_interval(time, period_length, time_slots)
+            bags[interval] += 1
 
-        period_count = max_period_id - min_period_id + 1
-        return [len(bag) / period_count for bag in bags]
+            prev_time = time
+
+        period_count = max(ceil((self[-1] - self[0]) / (period_length * 3600)), 1)
+        return [bag / period_count for bag in bags]
 
     @staticmethod
     def find_interval(tweet_time, period_length, time_slots):

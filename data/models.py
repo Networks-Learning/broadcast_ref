@@ -139,7 +139,6 @@ class ITweetList(object):
 
         return TweetListView(self, slice_left, slice_right - slice_left)
 
-    @cache_enabled
     def get_periodic_intensity(self, period_length=24 * 7, time_slots=None):
         """
         :param period_length: in hours, default is one week (must be an integer if time_slots is None)
@@ -162,7 +161,8 @@ class ITweetList(object):
         total_number_of_periods = max(ceil(total_time / period_length), 1)
 
         for time in self:
-            tweets_per_slot[ITweetList.find_interval(time, period_length, time_slots)] += 1
+            interval = ITweetList.find_interval(time, period_length, time_slots)
+            tweets_per_slot[interval] += 1
 
         intensity = Intensity()
 

@@ -78,7 +78,7 @@ class TestSpeedTweetList(unittest.TestCase):
     def test_tweet_list_fetch_time(self):
         self.profiler.add_function(TweetList.get_periodic_intensity)
         t_list = self.user.wall_tweet_list()
-        t_list.get_periodic_intensity()
+        self.profiler.run('t_list.get_periodic_intensity()')
         self.profiler.print_stats(sys.stdout)
 
     def tearDown(self):

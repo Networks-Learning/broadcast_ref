@@ -69,21 +69,5 @@ class TestTweetList(unittest.TestCase):
         pass
 
 
-class TestSpeedTweetList(unittest.TestCase):
-    def setUp(self):
-        self.repo = HDFSSQLiteUserRepository(HDFSLoader(), DbConnection())
-        self.user = User(8820492, self.repo)
-        self.profiler = LineProfiler()
-
-    def test_tweet_list_fetch_time(self):
-        self.profiler.add_function(TweetList.get_periodic_intensity)
-        t_list = self.user.wall_tweet_list()
-        self.profiler.run('t_list.get_periodic_intensity()')
-        self.profiler.print_stats(sys.stdout)
-
-    def tearDown(self):
-        pass
-
-
 if __name__ == '__main__':
     unittest.main()

@@ -8,6 +8,8 @@ import numpy as np
 from util.cal import unix_timestamp
 from util.decorators import cache_enabled
 
+import pyximport; pyximport.install()
+import helper
 
 class Intensity:
     """
@@ -101,6 +103,9 @@ class ITweetList(object):
         else:
             self._current += 1
             return self[self._current - 1]
+        
+    def _get_tweet_list(self):
+        raise NotImplementedError()
 
     def sublist(self, start_date=None, end_date=None):
         """
@@ -139,6 +144,7 @@ class ITweetList(object):
 
         return TweetListView(self, slice_left, slice_right - slice_left)
 
+    @cache_enabled
     def get_periodic_intensity(self, period_length=24 * 7, time_slots=None):
         """
         :param period_length: in hours, default is one week (must be an integer if time_slots is None)
@@ -149,7 +155,7 @@ class ITweetList(object):
         if time_slots is None:
             time_slots = [1.] * period_length
 
-        tweets_per_slot = [0] * len(time_slots)
+        # tweets_per_slot = [0] * len(time_slots)
 
         if len(self) is 0:
             intensity = Intensity()
@@ -160,9 +166,7 @@ class ITweetList(object):
         total_time = (self[-1] - self[0]) / 3600.
         total_number_of_periods = max(ceil(total_time / period_length), 1)
 
-        for time in self:
-            interval = ITweetList.find_interval(time, period_length, time_slots)
-            tweets_per_slot[interval] += 1
+        tweets_per_slot = helper.get_intensity_cy(self._get_tweet_list(), period_length)
 
         intensity = Intensity()
 
@@ -185,17 +189,7 @@ class ITweetList(object):
         if len(self) is 0:
             return [0.] * len(time_slots)
 
-        bags = [0] * len(time_slots)
-
-        prev_time = 0
-        for time in self:
-            if time - prev_time < 3600 and time % 3600 > prev_time % 3600:
-                continue
-
-            interval = ITweetList.find_interval(time, period_length, time_slots)
-            bags[interval] += 1
-
-            prev_time = time
+        bags = helper.get_connection_bags_cy(self._get_tweet_list(), period_length)
 
         period_count = max(ceil((self[-1] - self[0]) / (period_length * 3600)), 1)
         return [bag / period_count for bag in bags]
@@ -231,6 +225,9 @@ class TweetList(ITweetList):
 
     def get_slice_index_right(self, time_ts):
         return bisect.bisect_right(self._tweet_times, time_ts)
+                                
+    def _get_tweet_list(self):
+        return self._tweet_times
 
 
 class TweetListView(ITweetList):
@@ -270,3 +267,7 @@ class TweetListView(ITweetList):
         if ind >= self._size:
             return self._size
         return ind
+
+    def _get_tweet_list(self):
+        return self.tweet_list._get_tweet_list()
+

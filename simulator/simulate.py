@@ -1,6 +1,5 @@
 from __future__ import division
 import numpy as np
-from data.models import Intensity
 
 
 def generate_poisson_process(rate, time_start, time_end):
@@ -48,18 +47,15 @@ def calculate_real_visibility_time(t1, t2, pi):
 def generate_piecewise_constant_poisson_process(intensity, start_time=0):
     """
     :param start_time: starting time in datetime format
-    :type intensity: Intensity
     :return: a list
     """
 
     process = []
     end_of_last_slot = start_time
 
-    for item in intensity.intensity:
-        process += generate_poisson_process(item['rate'],
-                                                      end_of_last_slot,
-                                                      item['length'] + end_of_last_slot)
-        end_of_last_slot += item['length']
+    for item in intensity:
+        process += generate_poisson_process(item, end_of_last_slot, 1. + end_of_last_slot)
+        end_of_last_slot += 1.
 
     return process
 
@@ -122,15 +118,11 @@ def time_being_in_top_k(_process1, _process2, k, end_of_time, pi, process1_initi
     return time_on_top
 
 
-
 def get_expectation_std_top_k_simulating(lambda1, lambda2, k, pi, number_of_iterations=10000):
     """
     This function will simulate two poisson processes with rates $\lambda_1$ and $\lambda_2$ for "number_of_iterations"
     times and for each of the simulations computes the function "time_being_in_top_k"
     and after all computes the average and standard deviation of the results and returns them.
-
-    :type lambda1: Intensity
-    :type lambda2: Intensity
     """
 
     times_on_top = []
@@ -139,7 +131,7 @@ def get_expectation_std_top_k_simulating(lambda1, lambda2, k, pi, number_of_iter
         process1 = generate_piecewise_constant_poisson_process(lambda1)
         process2 = generate_piecewise_constant_poisson_process(lambda2)
 
-        times_on_top += [time_being_in_top_k(process1, process2, k, lambda1.total_time(), pi)]
+        times_on_top += [time_being_in_top_k(process1, process2, k, len(lambda1), pi)]
 
     return [np.mean(times_on_top), np.std(times_on_top)]
 

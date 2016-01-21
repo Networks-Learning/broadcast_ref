@@ -1,7 +1,7 @@
 from __future__ import division
 from math import factorial, exp
 import numpy as np
-from scipy.integrate import quad, trapz
+from scipy.integrate import trapz
 
 
 def f(t, k, b, c, h):
@@ -54,26 +54,12 @@ def expected_f_trapz(lambda1, lambda2, k, h0=None, pi=None):
     e_f = 0
     sample_count = 11
     for i in range(lambda2.size()):
-        samples = np.linspace(0, lambda2[i]['length'], sample_count)
-        values = [f_single_valued(sample, k, lambda2[i]['rate'], lambda1[i]['rate'], h0) for sample in samples]
+        samples = np.linspace(0, 1, sample_count)
+        values = [f_single_valued(sample, k, lambda2[i], lambda1[i], h0) for sample in samples]
         e_f += pi[i] * trapz(values, samples)
 
-        h0 = f(lambda2[i]['length'], k, lambda2[i]['rate'], lambda1[i]['rate'], h0)
+        h0 = f(1, k, lambda2[i], lambda1[i], h0)
 
-    return e_f
-
-
-def expected_f_quad(lambda1, lambda2, k, h0=None, pi=None):
-    h0 = [0.] * k if h0 is None else h0
-
-    e_f = 0
-    for i in range(lambda2.size()):
-        e_f += pi[i] * quad(f_single_valued,
-                            0, lambda2[i]['length'],
-                            (k, lambda2[i]['rate'], lambda1[i]['rate'], h0),
-                            epsabs=1e-3)[0]
-
-        h0 = f(lambda2[i]['length'], k, lambda2[i]['rate'], lambda1[i]['rate'], h0)
     return e_f
 
 
@@ -95,24 +81,24 @@ def gradient_top_k(lambda1, lambda2, k, h0=None, pi=None):
     epsilon = 0.0001
 
     for i in range(n):
-        if lambda1[i]['rate'] >= epsilon:
-            lambda1[i]['rate'] -= epsilon
+        if lambda1[i] >= epsilon:
+            lambda1[i] -= epsilon
             f1 = expected_f_top_k(lambda1, lambda2, k, h0, pi=pi)
-            lambda1[i]['rate'] += 2. * epsilon
+            lambda1[i] += 2. * epsilon
             f2 = expected_f_top_k(lambda1, lambda2, k, h0, pi=pi)
             grad[i] = (f2 - f1) / (2. * epsilon)
-            lambda1[i]['rate'] -= epsilon
+            lambda1[i] -= epsilon
         else:
             f1 = expected_f_top_k(lambda1, lambda2, k, h0, pi=pi)
-            lambda1[i]['rate'] += epsilon
+            lambda1[i] += epsilon
             f2 = expected_f_top_k(lambda1, lambda2, k, h0, pi=pi)
             grad[i] = (f2 - f1) / epsilon
-            lambda1[i]['rate'] -= epsilon
+            lambda1[i] -= epsilon
     return grad
 
 
 def f_top_one(t, b, c, h):
-    return f(t, 1, b, c, [h])[0]
+    return f(t, 1, b, c, np.array([h]))[0]
 
 
 def expected_f_top_one(lambda1, lambda2, pi):
@@ -120,9 +106,9 @@ def expected_f_top_one(lambda1, lambda2, pi):
     e_f = 0
     h = 0
     for m in range(M):
-        bm = lambda2[m]['rate']
-        cm = lambda1[m]['rate']
-        dt = lambda2[m]['length']
+        bm = lambda2[m]
+        cm = lambda1[m]
+        dt = 1.
 
         if bm + cm < 1e-10:
             e_f += h * dt * pi[m]
@@ -142,16 +128,16 @@ def h_va_shoraka(lambda1, lambda2):
 
     h[-1] = 0
     for m in range(M):
-        bm = lambda2[m]['rate']
-        cm = lambda1[m]['rate']
-        dt = lambda2[m]['length']
+        bm = lambda2[m]
+        cm = lambda1[m]
+        dt = 1.
         q[m] = exp(-dt * (bm + cm))
         h[m] = f_top_one(dt, bm, cm, h[m - 1])
 
     for m in range(M):
-        bm = lambda2[m]['rate']
-        cm = lambda1[m]['rate']
-        dt = lambda2[m]['length']
+        bm = lambda2[m]
+        cm = lambda1[m]
+        dt = 1.
 
         if bm + cm == 0.:
             dh_dc[m, m] = dt * (1 - h[m - 1])
@@ -170,9 +156,9 @@ def gradient_top_one(lambda1, lambda2, pi):
     h, dh_dc = h_va_shoraka(lambda1, lambda2)
 
     for k in range(M):
-        bk = lambda2[k]['rate']
-        ck = lambda1[k]['rate']
-        dtk = lambda2[k]['length']
+        bk = lambda2[k]
+        ck = lambda1[k]
+        dtk = 1.
 
         if bk + ck == 0.:
             grad[k] += (dtk ** 2) * (1. - h[k - 1]) / 2. * pi[k]
@@ -180,9 +166,9 @@ def gradient_top_one(lambda1, lambda2, pi):
             grad[k] += (-dh_dc[k, k] * (bk + ck) - h[k - 1] + h[k] + bk * dtk) / (bk + ck) ** 2 * pi[k]
 
         for m in range(k + 1, M):
-            bm = lambda2[m]['rate']
-            cm = lambda1[m]['rate']
-            dtm = lambda2[m]['length']
+            bm = lambda2[m]
+            cm = lambda1[m]
+            dtm = 1.
 
             if bm + cm == 0.:
                 grad[k] += dtm * dh_dc[m - 1, k] * pi[m]

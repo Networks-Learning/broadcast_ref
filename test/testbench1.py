@@ -1,11 +1,9 @@
 from __future__ import print_function, division
 from datetime import timedelta
-from pprint import pprint
 import time
 
 import numpy as np
 
-from data.models import Intensity
 from simulator.simulate import generate_piecewise_constant_poisson_process, time_being_in_top_k
 from util.cal import unix_timestamp
 
@@ -31,7 +29,7 @@ def test_avm(test_start_date, test_end_date, user, test_intensity, iterations=1)
 
             print("\r  [week number {0}/{2}: {1}]".format(week + 1, week_start_day, total_weeks), end='')
 
-            simulated_process = generate_piecewise_constant_poisson_process(Intensity(test_intensity))
+            simulated_process = generate_piecewise_constant_poisson_process(test_intensity)
 
             real_process = user.tweet_list().get_day_tweets(week_start_day)
             real_process = [(x - week_start_day_unix) / 3600. for x in real_process]

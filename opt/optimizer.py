@@ -1,7 +1,6 @@
 from __future__ import division, print_function
 import numpy as np
 from cvxopt import matrix, solvers
-from data.models import Intensity
 from opt import utils
 from data.user import User
 import time
@@ -81,13 +80,19 @@ def optimize(util, util_grad, budget, upper_bounds, threshold, x0=None):
 
 
 def learn_and_optimize(user, budget=None, upper_bounds=None,
-                       period_length=24 * 7, time_slots=None,
+                       period_length=24 * 7,
                        start_hour=0, end_hour=24,
                        learn_start_date=None, learn_end_date=None,
                        util=utils.weighted_top_one, util_gradient=utils.weighted_top_one_grad,
                        threshold=0.005,
                        extra_opt=None):
     """
+    :param budget: maximum budget we have
+    :param period_length: length of the periods in hours
+    :param util_gradient: gradient of the utility function
+    :param util: utility function
+    :param threshold: when norm of the difference of two consecutive iterations is less than this threshold, stop
+    :param extra_opt: used for giving extra arguments to utility functions, such as k value
     :type user: User
     :type upper_bounds: np.ndarray
     :type start_hour: float
@@ -100,14 +105,11 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
     if extra_opt is None:
         extra_opt = []
 
-    if time_slots is None:
-        time_slots = [1.] * period_length
-
     user_tl = user.tweet_list().sublist(learn_start_date, learn_end_date)
-    oi = user_tl.get_periodic_intensity(period_length, time_slots).sub_intensity(start_hour, end_hour)
+    oi = user_tl.get_periodic_intensity(period_length)[start_hour:end_hour]
 
     if budget is None:
-        budget = sum([x['rate'] * x['length'] for x in oi])
+        budget = sum(oi)
 
     no_bad_users = 0
     if upper_bounds is None:
@@ -118,30 +120,29 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
         for target in user.followers():
             # Progressbar
             t_counter += 1
-            print("\r[%% %.2f] processing %d" % (100.*t_counter/len(user.followers()), target.user_id()), end="")
+            print("\r[%% %.2f] processing %d" % (100. * t_counter / len(user.followers()), target.user_id()), end="")
 
-            target_wall_tlist = target.wall_tweet_list(excluded_user_id=user.user_id())
-            target_wall_tlist_sub = target_wall_tlist.sublist(learn_start_date, learn_end_date)
-            target_wall_intensity_all = target_wall_tlist_sub.get_periodic_intensity(period_length, time_slots)
-            target_wall_intensity = target_wall_intensity_all.sub_intensity(start_hour, end_hour)
+            target_wall_t_list = target.wall_tweet_list(excluded_user_id=user.user_id())
+            target_wall_t_list_sub = target_wall_t_list.sublist(learn_start_date, learn_end_date)
+            target_wall_intensity_all = target_wall_t_list_sub.get_periodic_intensity(period_length)
+            target_wall_intensity = target_wall_intensity_all[start_hour:end_hour]
 
             followers_wall_intensities.append(target_wall_intensity)
 
-            _max = max([0] + [oi[i]['rate'] / target_wall_intensity[i]['rate']
-                        for i in range(oi.size()) if target_wall_intensity[i]['rate'] != 0.0])
+            _max = max([0] + [oi[i] / target_wall_intensity[i]
+                              for i in range(oi.size()) if target_wall_intensity[i] != 0.0])
 
             if _max == 0:
                 no_bad_users += 1
 
-            upper_bounds += user.get_follower_weight(target) * _max * \
-                            np.array(target_wall_intensity.get_as_vector()[0])
+            upper_bounds += user.get_follower_weight(target) * _max * np.array(target_wall_intensity)
     else:
         followers_wall_intensities = [
-            target.wall_tweet_list(excluded_user_id=user.user_id()).sublist(learn_start_date, learn_end_date) \
-                .get_periodic_intensity(period_length, time_slots) \
-                .sub_intensity(start_hour, end_hour)
+            target.wall_tweet_list(excluded_user_id=user.user_id()).sublist(learn_start_date,
+                                                                            learn_end_date).get_periodic_intensity(
+                period_length)[start_hour:end_hour]
             for target in user.followers()
-        ]
+            ]
 
     followers_weights = [
         user.get_follower_weight(target)
@@ -157,13 +158,13 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
     print(upper_bounds)
     print('budget: ')
     print(budget)
-    print('bad users: ')
+    print('# bad users: ')
     print(no_bad_users)
 
     def _util(x):
-        return util(Intensity(x), followers_wall_intensities, followers_conn_prob, followers_weights, *extra_opt)
+        return util(x, followers_wall_intensities, followers_conn_prob, followers_weights, *extra_opt)
 
     def _util_grad(x):
-        return util_gradient(Intensity(x), followers_wall_intensities, followers_conn_prob, followers_weights, *extra_opt)
+        return util_gradient(x, followers_wall_intensities, followers_conn_prob, followers_weights, *extra_opt)
 
     return optimize(_util, _util_grad, budget, upper_bounds, threshold=threshold)

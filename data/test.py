@@ -1,10 +1,7 @@
 import unittest
-
 from datetime import datetime
-
 import sys
 from line_profiler import LineProfiler
-
 from data.db_connector import DbConnection
 from data.hdfs import HDFSLoader
 from data.models import TweetList
@@ -37,8 +34,8 @@ class TestHDFSLoader(unittest.TestCase):
 
     def test_loaded_data(self):
         self.assertListEqual(
-            list(self.loader.get_tweets(5320502)),   # data for @sadjad
-            [1177066462,1179306824,1180405750,1180695756,1228836295,1228980215,1229602451]
+            list(self.loader.get_tweets(5320502)),  # data for @sadjad
+            [1177066462, 1179306824, 1180405750, 1180695756, 1228836295, 1228980215, 1229602451]
         )
 
     def tearDown(self):
@@ -67,7 +64,7 @@ class TestTweetList(unittest.TestCase):
 
     def test_intensity(self):
         tweet_list = TweetList([2880, 3240, 3960, 8640, 606600, 607320])
-        print(tweet_list.get_periodic_intensity().get_as_vector()[0])
+        print(tweet_list.get_periodic_intensity())
 
     def tearDown(self):
         pass

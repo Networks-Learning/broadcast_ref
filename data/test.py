@@ -2,9 +2,14 @@ import unittest
 
 from datetime import datetime
 
+import sys
+from line_profiler import LineProfiler
+
 from data.db_connector import DbConnection
 from data.hdfs import HDFSLoader
 from data.models import TweetList
+from data.user import User
+from data.user_repo import HDFSSQLiteUserRepository
 from util.cal import unix_timestamp
 
 
@@ -30,12 +35,9 @@ class TestHDFSLoader(unittest.TestCase):
     def setUp(self):
         self.loader = HDFSLoader()
 
-    def test_load_files(self):
-        self.assertIsNotNone(self.loader.files[0])
-
     def test_loaded_data(self):
         self.assertListEqual(
-            list(self.loader.get_data(5320502)),  # data for @sadjad
+            list(self.loader.get_tweets(5320502)),   # data for @sadjad
             [1177066462,1179306824,1180405750,1180695756,1228836295,1228980215,1229602451]
         )
 
@@ -62,6 +64,22 @@ class TestTweetList(unittest.TestCase):
         daily = sub_list.get_day_tweets(datetime(2000, 10, 2))
 
         self.assertListEqual(list(daily), self.tweet_times[1:3])
+
+    def tearDown(self):
+        pass
+
+
+class TestSpeedTweetList(unittest.TestCase):
+    def setUp(self):
+        self.repo = HDFSSQLiteUserRepository(HDFSLoader(), DbConnection())
+        self.user = User(8820492, self.repo)
+        self.profiler = LineProfiler()
+
+    def test_tweet_list_fetch_time(self):
+        self.profiler.add_function(TweetList.get_periodic_intensity)
+        t_list = self.user.wall_tweet_list()
+        t_list.get_periodic_intensity()
+        self.profiler.print_stats(sys.stdout)
 
     def tearDown(self):
         pass

@@ -1,4 +1,8 @@
+from functools import wraps
+
+
 def cache_enabled(f):
+    @wraps(f)
     def wrapper(self, *args, **kwargs):
         attr = '_%s__%s' % (f.__name__, '_'.join([str(a) for a in args if a is not None]))
         if not hasattr(self, attr) or getattr(self, attr) is None:

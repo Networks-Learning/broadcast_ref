@@ -42,8 +42,8 @@ def optimize_base(util, grad, proj, x0, threshold, gamma=0.8, c=0.5):
     x = proj(x0)
 
     for i in range(max_iterations):
+        print('iter %d' % i)
         if i % 10 == 0:
-            print('iter %d' % i)
             print(x)
         g = grad(x)
         d = proj(x + g * 100000.) - x

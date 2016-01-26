@@ -71,7 +71,7 @@ def optimize(util, util_grad, budget, upper_bounds, threshold, x0=None):
         print("obvious case")
         return upper_bounds
 
-    x0 = [0.] * len(upper_bounds) if x0 is None else x0
+    x0 = np.array([0.] * len(upper_bounds)) if x0 is None else x0
 
     opt_rates = optimize_base(util, util_grad, proj, x0, threshold)
     delta = int(round(time.time() * 1000)) - start
@@ -138,21 +138,21 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
             upper_bounds += user.get_follower_weight(target) * _max * np.array(target_wall_intensity)
     else:
         followers_wall_intensities = [
-            target.wall_tweet_list(excluded_user_id=user.user_id()).sublist(learn_start_date,
+            np.array(target.wall_tweet_list(excluded_user_id=user.user_id()).sublist(learn_start_date,
                                                                             learn_end_date).get_periodic_intensity(
-                period_length)[start_hour:end_hour]
+                period_length)[start_hour:end_hour])
             for target in user.followers()
             ]
 
-    followers_weights = [
+    followers_weights = np.array([
         user.get_follower_weight(target)
         for target in user.followers()
-        ]
+        ])
 
-    followers_conn_prob = [
+    followers_conn_prob = np.array([
         target.tweet_list().sublist(learn_start_date, learn_end_date).get_connection_probability()[start_hour:end_hour]
         for target in user.followers()
-        ]
+        ])
 
     print('upper bounds: ')
     print(upper_bounds)

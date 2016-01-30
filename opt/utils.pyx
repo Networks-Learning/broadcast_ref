@@ -33,38 +33,72 @@ cdef np.ndarray f(double t, int k, double b, double c, np.ndarray h):
     return np.dot(alpha, poly_t) * exp(-(b + c) * t) + betas
 
 
-cdef double f_single_valued(double t, int k, double b, double c, np.ndarray h):
-    return f(t, k, b, c, h)[k - 1]
+cpdef double our_gamma_function(int n, double x):
+    # evaluates n!(1 - exp(-x) * sum (0..n) x**i / i!)
 
-
-cdef double expected_f_top_k(np.ndarray lambda1, np.ndarray lambda2, int k, np.ndarray pi):
-    return expected_f_trapz(lambda1, lambda2, k, pi)
-
-
-cdef double trapezoidal(int k, double b, double c, np.ndarray h0):
-    cdef int n = 10
-    cdef double h = 1. / n
-    cdef double s = 0., x = 0.
+    cdef double result = 0., mul = 1., fact = 1.
     cdef int i
-    for i in range(n-1):
-        x += h
-        s += f_single_valued(x, k, b, c, h0)
-    s += 0.5 * (f_single_valued(0, k, b, c, h0) + f_single_valued(1, k, b, c, h0))
-    return s * h
+
+    for i in range(n+1):
+        result += mul
+        fact *= (i+1)
+        mul = mul * x / (i+1)
+
+    result *= exp(-x)
+    result = 1. - result
+    result = result * fact / (n + 1)
+
+    return result
 
 
-cdef double expected_f_trapz(np.ndarray lambda1, np.ndarray lambda2, int k, np.ndarray pi):
+cdef np.ndarray get_alphas(int k, np.ndarray betas, np.ndarray h, double b, double c):
+    cdef np.ndarray alphas = np.zeros(k, dtype=np.double)
+    cdef int i, j
+    cdef double pr = 1.
+    for i in range(k):
+        alphas[i] = pr * (h[k - i - 1] - betas[k - i - 1])
+        pr = pr * b / (i + 1)
+    return alphas
 
-    h0 = np.zeros(k, dtype=np.double)  # if h0 is None else h0
-    # pi = np.ones(k, dtype=np.double) if pi is None else pi
 
-    cdef double e_f = 0
+cdef np.ndarray get_betas(int k, double b, double c):
+    cdef np.ndarray betas = np.zeros(k, dtype=np.double)
+    cdef double p = c / (b + c)
     cdef int i
-    for i in range(lambda2.shape[0]):
-        e_f += pi[i] * trapezoidal(k, lambda2[i], lambda1[i], h0)
-        h0 = f(1, k, lambda2[i], lambda1[i], h0)
+    for i in range(k):
+        betas[i] = 1 - pow(1 - p, i + 1)  # betas[i-1] * b / (b + c)
+    return betas
 
-    return e_f
+
+cpdef double expected_f_top_k(np.ndarray lambda1, np.ndarray lambda2, int k, np.ndarray pi):
+    cdef np.ndarray h = np.zeros(k, dtype=np.double)
+
+    cdef np.ndarray alphas
+    cdef np.ndarray betas
+
+    cdef int fact = 1
+    cdef double b, c, p, result = 0.
+
+    cdef int i, m
+    for m in range(lambda1.shape[0]):
+        b = lambda2[m]
+        c = lambda1[m]
+
+        if b + c < 1e-6:
+            result += h[k-1]
+            h = f(1, k, b, c, h)
+            continue
+
+        betas = get_betas(k, b, c)
+        alphas = get_alphas(k, betas, h, b, c)
+
+        result += betas[k-1]
+        for i in range(k):
+            result += alphas[i] / pow(b+c, i+1) * our_gamma_function(i, b+c)
+
+        h = f(1, k, b, c, h)
+
+    return result
 
 
 cdef np.ndarray gradient_top_k(np.ndarray lambda1, np.ndarray lambda2, int k, np.ndarray pi=None):

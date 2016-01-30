@@ -2,9 +2,9 @@ from distutils.core import setup
 
 import numpy
 from Cython.Build import cythonize
-from Cython.Distutils import Extension
+from setuptools import Extension
 
-extensions = [Extension("*", ["*.pyx"])]
+extensions = [Extension("opt", ["opt/*.pyx"]), Extension("data", ["data/*.pyx"])]
 
 setup(
     ext_modules=cythonize(extensions),

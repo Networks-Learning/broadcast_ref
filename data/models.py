@@ -4,11 +4,8 @@ import numpy as np
 from util.cal import unix_timestamp
 from util.decorators import cache_enabled
 
-import pyximport
-pyximport.install(setup_args={"include_dirs": np.get_include()},
-                  reload_support=True)
+import pyximport; pyximport.install()
 import helper
-
 
 class ITweetList(object):
     _current = 0  # used in iterator

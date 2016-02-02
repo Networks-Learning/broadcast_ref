@@ -3,37 +3,36 @@ from __future__ import division
 import numpy as np
 cimport numpy as np
 
+import cython
+
 from libc.math cimport exp, pow
 
 
 # <editor-fold desc="Basic Functions">
 
-cdef np.ndarray f(double t, int k, double b, double c, np.ndarray h):
-    if b + c < 1e-10:
+cpdef np.ndarray f(double t, int k, double b, double c, np.ndarray h):
+    if b + c < 1e-5:
         return h
 
-    cdef np.ndarray alpha = np.zeros((k, k), dtype=np.double)
-    cdef double p = c / (b + c)
-
     cdef np.ndarray poly_t = np.zeros(k, dtype=np.double)
-    cdef np.ndarray betas = np.zeros(k, dtype=np.double)
+    cdef np.ndarray betas = get_betas(k, b, c)
+    cdef np.ndarray alphas = get_full_alphas(k, betas, h, b, c)
 
     cdef int i
-    cdef int fact = 1
     for i in range(k):
-        poly_t[i] = pow(t * b, i) / fact
-        betas[i] = 1 - pow(1 - p, i + 1)
-        fact *= (i + 1)
+        poly_t[i] = pow(t, i)
+    
+#    print('alphas are:')
+#    print (alphas)
+#    print ('beta is %f '%(betas[k-1]))
+#    print ('b is %f and c is %f' %(b,c))
+#    print ('poly_t is :')
+#    print (poly_t)
 
-    cdef int j
-    for i in range(k):
-        for j in range(i + 1):
-            alpha[i, j] = h[i - j] - betas[i - j]
-
-    return np.dot(alpha, poly_t) * exp(-(b + c) * t) + betas
+    return np.dot(poly_t, alphas) * exp(-(b + c) * t) + betas
 
 
-cpdef double our_gamma_function(int n, double x):
+cdef double our_gamma_function(int n, double x):
     # evaluates n!(1 - exp(-x) * sum (0..n) x**i / i!)
 
     cdef double result = 0., mul = 1., fact = 1.
@@ -51,9 +50,27 @@ cpdef double our_gamma_function(int n, double x):
     return result
 
 
+@cython.boundscheck(False)
+cdef np.ndarray get_full_alphas(int k, np.ndarray betas, np.ndarray h, double b, double c):
+    cdef np.ndarray alphas = np.zeros((k, k), dtype=np.double)
+    cdef int i, j
+    cdef double pr = 1.
+    
+    for i in range(k):
+        alphas[0, i] = h[i] - betas[i]
+    
+    for j in range(k):
+        pr = b
+        for i in range(1, j + 1):
+            alphas[i, j] = pr * alphas[0, j - i]
+            pr = pr * b / (i + 1)
+    return alphas
+
+
+@cython.boundscheck(False)
 cdef np.ndarray get_alphas(int k, np.ndarray betas, np.ndarray h, double b, double c):
     cdef np.ndarray alphas = np.zeros(k, dtype=np.double)
-    cdef int i, j
+    cdef int i
     cdef double pr = 1.
     for i in range(k):
         alphas[i] = pr * (h[k - i - 1] - betas[k - i - 1])
@@ -63,10 +80,10 @@ cdef np.ndarray get_alphas(int k, np.ndarray betas, np.ndarray h, double b, doub
 
 cdef np.ndarray get_betas(int k, double b, double c):
     cdef np.ndarray betas = np.zeros(k, dtype=np.double)
-    cdef double p = c / (b + c)
+    cdef double p = b / (b + c)
     cdef int i
     for i in range(k):
-        betas[i] = 1 - pow(1 - p, i + 1)  # betas[i-1] * b / (b + c)
+        betas[i] = 1. - pow(p , i + 1)  # betas[i-1] * b / (b + c)
     return betas
 
 
@@ -80,11 +97,12 @@ cpdef double expected_f_top_k(np.ndarray lambda1, np.ndarray lambda2, int k, np.
     cdef double b, c, p, result = 0.
 
     cdef int i, m
+    cdef double temp
     for m in range(lambda1.shape[0]):
         b = lambda2[m]
         c = lambda1[m]
 
-        if b + c < 1e-6:
+        if b + c < 1e-5:
             result += h[k-1]
             h = f(1, k, b, c, h)
             continue
@@ -94,10 +112,11 @@ cpdef double expected_f_top_k(np.ndarray lambda1, np.ndarray lambda2, int k, np.
 
         result += betas[k-1]
         for i in range(k):
-            result += alphas[i] / pow(b+c, i+1) * our_gamma_function(i, b+c)
-
+            temp = alphas[i] * pow(b+c, -i-1)
+            temp *= our_gamma_function(i, b+c)
+            result += temp
+            
         h = f(1, k, b, c, h)
-
     return result
 
 
@@ -308,3 +327,4 @@ def weighted_top_k_grad(lambda1, lambda2_list, conn_probs, weights, k, *args):
     return s
 
 # </editor-fold>
+

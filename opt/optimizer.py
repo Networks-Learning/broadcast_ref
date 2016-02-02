@@ -127,7 +127,7 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
             target_wall_intensity_all = target_wall_t_list_sub.get_periodic_intensity(period_length)
             target_wall_intensity = target_wall_intensity_all[start_hour:end_hour]
 
-            followers_wall_intensities.append(target_wall_intensity)
+            followers_wall_intensities.append(np.array(target_wall_intensity))
 
             _max = max([0] + [oi[i] / target_wall_intensity[i]
                               for i in range(len(oi)) if target_wall_intensity[i] != 0.0])
@@ -149,10 +149,11 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
         for target in user.followers()
         ])
 
-    followers_conn_prob = np.array([
-        target.tweet_list().sublist(learn_start_date, learn_end_date).get_connection_probability()[start_hour:end_hour]
-        for target in user.followers()
-        ])
+    followers_conn_prob = [np.ones(24) for target in user.followers()]
+    # followers_conn_prob = np.array([
+    #     target.tweet_list().sublist(learn_start_date, learn_end_date).get_connection_probability()[start_hour:end_hour]
+    #     for target in user.followers()
+    #     ])
 
     print('upper bounds: ')
     print(upper_bounds)

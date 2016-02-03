@@ -95,20 +95,28 @@ def time_being_in_top_k(_process1, _process2, k, end_of_time, pi, process1_initi
         process1_position += 1
 
     while it1 < len(process1) -1 or it2 < len(process2) - 1:
-        if process1[it1] < process2[it2]:
-            if process1_position <= k:
-                time_on_top += calculate_real_visibility_time(last_time_event, process1[it1], pi)
+        try:
+            if process1[it1] < process2[it2]:
+                if process1_position <= k:
+                    time_on_top += calculate_real_visibility_time(last_time_event, process1[it1], pi)
 
-            last_time_event = process1[it1]
-            it1 += 1
-            process1_position = 1
-        else:
-            if process1_position <= k:
-                time_on_top += calculate_real_visibility_time(last_time_event, process2[it2], pi)
+                last_time_event = process1[it1]
+                it1 += 1
+                process1_position = 1
+            else:
+                if process1_position <= k:
+                    time_on_top += calculate_real_visibility_time(last_time_event, process2[it2], pi)
 
-            last_time_event = process2[it2]
-            it2 += 1
-            process1_position += 1
+                last_time_event = process2[it2]
+                it2 += 1
+                process1_position += 1
+        except:
+            print('Error!!!')
+            print((it1, it2, end_of_time, len(process1), len(process2)))
+            np.savetxt('p1', process1)
+            np.savetxt('p2', process2)
+
+
     if process1_position <= k:
         time_on_top += calculate_real_visibility_time(last_time_event, end_of_time, pi)
 

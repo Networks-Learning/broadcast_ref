@@ -149,11 +149,10 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
         for target in user.followers()
         ])
 
-    followers_conn_prob = [np.ones(24) for target in user.followers()]
-    # followers_conn_prob = np.array([
-    #     target.tweet_list().sublist(learn_start_date, learn_end_date).get_connection_probability()[start_hour:end_hour]
-    #     for target in user.followers()
-    #     ])
+    followers_conn_prob = [
+        np.array(target.tweet_list().sublist(learn_start_date, learn_end_date).get_connection_probability()[start_hour:end_hour])
+        for target in user.followers()
+        ]
 
     print('upper bounds: ')
     print(upper_bounds)

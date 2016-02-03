@@ -27,6 +27,21 @@ def generate_poisson_process(rate, time_start, time_end):
             break
     return points
 
+def generate_piecewise_constant_poisson_process(intensity, start_time=0):
+    """
+    :param start_time: starting time in datetime format
+    :return: a list
+    """
+
+    process = []
+    end_of_last_slot = start_time
+
+    for rate in intensity:
+        process += generate_poisson_process(rate, end_of_last_slot, 1. + end_of_last_slot)
+        end_of_last_slot += 1.
+
+    return process
+
 
 def calculate_real_visibility_time(t1, t2, pi):
     """
@@ -44,20 +59,6 @@ def calculate_real_visibility_time(t1, t2, pi):
         return sum(pi[i:j]) - (t1 - float(i)) * pi[i] + (t2 - float(j)) * pi[j]
 
 
-def generate_piecewise_constant_poisson_process(intensity, start_time=0):
-    """
-    :param start_time: starting time in datetime format
-    :return: a list
-    """
-
-    process = []
-    end_of_last_slot = start_time
-
-    for item in intensity:
-        process += generate_poisson_process(item, end_of_last_slot, 1. + end_of_last_slot)
-        end_of_last_slot += 1.
-
-    return process
 
 
 def time_being_in_top_k(_process1, _process2, k, end_of_time, pi, process1_initial_position=None):
@@ -77,10 +78,6 @@ def time_being_in_top_k(_process1, _process2, k, end_of_time, pi, process1_initi
     else:
         process1_position = process1_initial_position
 
-    if len(process1) == 0:
-        return 0.
-    if len(process2) == 0:
-        return end_of_time - process1[0]
 
     if process1[it1] < process2[it2]:
         last_time_event = process1[it1]
@@ -98,20 +95,28 @@ def time_being_in_top_k(_process1, _process2, k, end_of_time, pi, process1_initi
         process1_position += 1
 
     while it1 < len(process1) -1 or it2 < len(process2) - 1:
-        if process1[it1] < process2[it2]:
-            if process1_position <= k:
-                time_on_top += calculate_real_visibility_time(last_time_event, process1[it1], pi)
+        try:
+            if process1[it1] < process2[it2]:
+                if process1_position <= k:
+                    time_on_top += calculate_real_visibility_time(last_time_event, process1[it1], pi)
 
-            last_time_event = process1[it1]
-            it1 += 1
-            process1_position = 1
-        else:
-            if process1_position <= k:
-                time_on_top += calculate_real_visibility_time(last_time_event, process2[it2], pi)
+                last_time_event = process1[it1]
+                it1 += 1
+                process1_position = 1
+            else:
+                if process1_position <= k:
+                    time_on_top += calculate_real_visibility_time(last_time_event, process2[it2], pi)
 
-            last_time_event = process2[it2]
-            it2 += 1
-            process1_position += 1
+                last_time_event = process2[it2]
+                it2 += 1
+                process1_position += 1
+        except:
+            print('Error!!!')
+            print((it1, it2, end_of_time, len(process1), len(process2)))
+            np.savetxt('p1', process1)
+            np.savetxt('p2', process2)
+
+
     if process1_position <= k:
         time_on_top += calculate_real_visibility_time(last_time_event, end_of_time, pi)
 
@@ -131,6 +136,19 @@ def get_expectation_std_top_k_simulating(lambda1, lambda2, k, pi, number_of_iter
         process1 = generate_piecewise_constant_poisson_process(lambda1)
         process2 = generate_piecewise_constant_poisson_process(lambda2)
 
+        times_on_top += [time_being_in_top_k(process1, process2, k, len(lambda1), pi)]
+
+    return [np.mean(times_on_top), np.std(times_on_top)]
+
+def get_expectation_std_top_k_practice(lambda1, process2, k, pi, number_of_iterations=10):
+    """
+    This function will simulate one intensity and compares it with the real events and computes the
+    time being in top k for the two process
+    """
+    times_on_top = []
+
+    for i in range(number_of_iterations):
+        process1 = generate_piecewise_constant_poisson_process(lambda1)
         times_on_top += [time_being_in_top_k(process1, process2, k, len(lambda1), pi)]
 
     return [np.mean(times_on_top), np.std(times_on_top)]

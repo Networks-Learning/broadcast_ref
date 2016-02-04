@@ -113,8 +113,9 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
 
     no_bad_users = 0
     if upper_bounds is None:
-        upper_bounds = calculate_upper_bounds(user, learn_start_date, learn_end_date, start_hour, end_hour, oi,
-                                              period_length)
+        upper_bounds, followers_wall_intensities = calculate_upper_bounds(user,
+                                                                          learn_start_date, learn_end_date,
+                                                                          start_hour, end_hour, oi, period_length)
     else:
         followers_wall_intensities = [
             np.array(target.wall_tweet_list(excluded_user_id=user.user_id()).sublist(learn_start_date,
@@ -171,4 +172,4 @@ def calculate_upper_bounds(user, learn_start_date, learn_end_date, start_hour, e
 
         upper_bounds += user.get_follower_weight(target) * _max * np.array(target_wall_intensity)
 
-    return upper_bounds
+    return upper_bounds, followers_wall_intensities

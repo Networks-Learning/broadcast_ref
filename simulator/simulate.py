@@ -1,5 +1,7 @@
 from __future__ import division
 import numpy as np
+import traceback
+import sys
 
 
 def generate_poisson_process(rate, time_start, time_end):
@@ -27,6 +29,7 @@ def generate_poisson_process(rate, time_start, time_end):
             break
     return points
 
+
 def generate_piecewise_constant_poisson_process(intensity, start_time=0):
     """
     :param start_time: starting time in datetime format
@@ -49,6 +52,7 @@ def calculate_real_visibility_time(t1, t2, pi):
     """
     i = int(t1)
     j = int(t2)
+        
     if i == j:
         if j == len(pi):
             return 0.
@@ -57,8 +61,6 @@ def calculate_real_visibility_time(t1, t2, pi):
         if j == len(pi):
             return sum(pi[i:j]) - (t1 - float(i)) * pi[i]
         return sum(pi[i:j]) - (t1 - float(i)) * pi[i] + (t2 - float(j)) * pi[j]
-
-
 
 
 def time_being_in_top_k(_process1, _process2, k, end_of_time, pi, process1_initial_position=None):
@@ -78,7 +80,6 @@ def time_being_in_top_k(_process1, _process2, k, end_of_time, pi, process1_initi
     else:
         process1_position = process1_initial_position
 
-
     if process1[it1] < process2[it2]:
         last_time_event = process1[it1]
         it1 += 1
@@ -95,7 +96,6 @@ def time_being_in_top_k(_process1, _process2, k, end_of_time, pi, process1_initi
         process1_position += 1
 
     while it1 < len(process1) -1 or it2 < len(process2) - 1:
-        try:
             if process1[it1] < process2[it2]:
                 if process1_position <= k:
                     time_on_top += calculate_real_visibility_time(last_time_event, process1[it1], pi)
@@ -110,12 +110,6 @@ def time_being_in_top_k(_process1, _process2, k, end_of_time, pi, process1_initi
                 last_time_event = process2[it2]
                 it2 += 1
                 process1_position += 1
-        except:
-            print('Error!!!')
-            print((it1, it2, end_of_time, len(process1), len(process2)))
-            np.savetxt('p1', process1)
-            np.savetxt('p2', process2)
-
 
     if process1_position <= k:
         time_on_top += calculate_real_visibility_time(last_time_event, end_of_time, pi)
@@ -139,6 +133,7 @@ def get_expectation_std_top_k_simulating(lambda1, lambda2, k, pi, number_of_iter
         times_on_top += [time_being_in_top_k(process1, process2, k, len(lambda1), pi)]
 
     return [np.mean(times_on_top), np.std(times_on_top)]
+
 
 def get_expectation_std_top_k_practice(lambda1, process2, k, pi, number_of_iterations=10):
     """

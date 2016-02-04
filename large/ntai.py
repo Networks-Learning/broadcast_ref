@@ -15,9 +15,9 @@ from data.user import User
 from data.user_repo import HDFSSQLiteUserRepository
 from opt.optimizer import learn_and_optimize
 
-test_start_date = datetime(2009, 6, 1)
-test_end_date = datetime(2009, 9, 1)
-total_weeks = (test_end_date - test_start_date).days / 7
+test_start_date = datetime(2009, 6, 4)
+test_end_date = datetime(2009, 9, 3)
+total_weeks = int((test_end_date - test_start_date).days / 7)
 path_prefix = '/local/moreka/np_data/'
 
 
@@ -54,6 +54,7 @@ def worker(pid, user_id, num_months_to_learn):
     best_intensity = learn_and_optimize(user, budget=budget,
                                         learn_start_date=learn_start_date,
                                         learn_end_date=learn_end_date,
+                                        start_hour=0, end_hour=176,
                                         threshold=0.02)
 
     np.save('%s%08d_%02d_best' % (path_prefix, user_id, months), np.array(best_intensity))
@@ -68,7 +69,7 @@ if __name__ == '__main__':
     # good_users = [16173435]  #, 33830602, 16648152, 17404514, 6094672, 21010474]
 
     jobs = []
-    for i in range(len(good_users[:100])):
+    for i in range(len(good_users)):
         for months in [3]:
             p = multiprocessing.Process(target=worker, args=(i + 1, good_users[i], months,))
             jobs.append(p)

@@ -60,15 +60,10 @@ if __name__ == '__main__':
 
     jobs = []
     for i in range(len(good_users)):
-        # for months in [3, 6, 9]:
-        #     for work in [SIMULATION, THEORETICAL]:
-        #         p = multiprocessing.Process(target=worker, args=(i + 1, good_users[i], months, work))
-        #         jobs.append(p)
-        #         p.start()
-
-        p = multiprocessing.Process(target=do_practical_work, args=(i + 1, good_users[i], [3]))
-        jobs.append(p)
-        p.start()
+        for work in [SIMULATION, THEORETICAL]:
+            p = multiprocessing.Process(target=worker, args=(i + 1, good_users[i], 3, work))
+            jobs.append(p)
+            p.start()
 
     for j in jobs:
         j.join()

@@ -148,6 +148,34 @@ cdef np.ndarray gradient_top_k(np.ndarray lambda1, np.ndarray lambda2, int k, np
     return grad
 
 
+cdef np.ndarray gradient_top_one_numerical(np.ndarray lambda1, np.ndarray lambda2, np.ndarray pi=None):
+
+    # h0 = np.zeros(1, dtype=np.double)  # if h0 is None else h0
+    # pi = np.ones(k, dtype=np.double) if pi is None else pi
+
+    cdef int n = lambda2.shape[0]
+    cdef np.ndarray grad = np.zeros(n, dtype=np.double)
+    cdef double epsilon = 0.0001
+
+    cdef int i
+    cdef double f1, f2
+    for i in range(n):
+        if lambda1[i] >= epsilon:
+            lambda1[i] -= epsilon
+            f1 = expected_f_top_one(lambda1, lambda2, pi=pi)
+            lambda1[i] += 2. * epsilon
+            f2 = expected_f_top_one(lambda1, lambda2, pi=pi)
+            grad[i] = (f2 - f1) / (2. * epsilon)
+            lambda1[i] -= epsilon
+        else:
+            f1 = expected_f_top_one(lambda1, lambda2, pi=pi)
+            lambda1[i] += epsilon
+            f2 = expected_f_top_one(lambda1, lambda2, pi=pi)
+            grad[i] = (f2 - f1) / epsilon
+            lambda1[i] -= epsilon
+    return grad
+
+
 cdef double f_top_one(double t, double b, double c, double h):
     cdef np.ndarray h_arr = np.zeros(1, dtype=np.double)
     h_arr[0] = h
@@ -289,7 +317,7 @@ def weighted_top_one_k_grad(lambda1, lambda2_list, conn_probs, weights, *args):
     s = np.zeros(len(lambda1))
 
     for i in range(len(lambda2_list)):
-        s += gradient_top_k(lambda1, lambda2_list[i], 1, pi=conn_probs[i]) * weights[i]
+        s += gradient_top_one_numerical(lambda1, lambda2_list[i], 1, pi=conn_probs[i]) * weights[i]
     return s
 
 

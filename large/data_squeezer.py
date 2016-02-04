@@ -58,7 +58,9 @@ def do_practical_work(pid, user_id, month_list):
         test_list = target.wall_tweet_list(excluded_user_id=user.user_id()).sublist(test_start_date, test_end_date)
         target_wall_no_offset = ((test_list._get_tweet_list() - test_start_date_unix) / 3600.).tolist()
 
-        tweet_bags = target.tweet_list().sublist(test_start_date, test_end_date).get_periodic_intensity(n)
+        tweet_bags = target.tweet_list().sublist(test_start_date, test_end_date).\
+            get_periodic_intensity(n, test_start_date, test_end_date)
+
         pi = np.zeros(n)
         for j in range(n):
             if tweet_bags[j] > 0:

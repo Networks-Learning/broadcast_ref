@@ -106,41 +106,20 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
         extra_opt = []
 
     user_tl = user.tweet_list().sublist(learn_start_date, learn_end_date)
-    oi = user_tl.get_periodic_intensity(period_length)[start_hour:end_hour]
+    oi = user_tl.get_periodic_intensity(period_length, learn_start_date, learn_end_date)[start_hour:end_hour]
 
     if budget is None:
         budget = sum(oi)
 
     no_bad_users = 0
     if upper_bounds is None:
-        upper_bounds = np.zeros(len(oi))
-        followers_wall_intensities = []
-
-        t_counter = 0.
-        for target in user.followers():
-            # Progressbar
-            t_counter += 1
-            print("\r[%% %.2f] processing %d" % (100. * t_counter / len(user.followers()), target.user_id()), end="")
-
-            target_wall_t_list = target.wall_tweet_list(excluded_user_id=user.user_id())
-            target_wall_t_list_sub = target_wall_t_list.sublist(learn_start_date, learn_end_date)
-            target_wall_intensity_all = target_wall_t_list_sub.get_periodic_intensity(period_length)
-            target_wall_intensity = target_wall_intensity_all[start_hour:end_hour]
-
-            followers_wall_intensities.append(np.array(target_wall_intensity))
-
-            _max = max([0] + [oi[i] / target_wall_intensity[i]
-                              for i in range(len(oi)) if target_wall_intensity[i] != 0.0])
-
-            if _max == 0:
-                no_bad_users += 1
-
-            upper_bounds += user.get_follower_weight(target) * _max * np.array(target_wall_intensity)
+        upper_bounds = calculate_upper_bounds(user, learn_start_date, learn_end_date, start_hour, end_hour, oi,
+                                              period_length)
     else:
         followers_wall_intensities = [
             np.array(target.wall_tweet_list(excluded_user_id=user.user_id()).sublist(learn_start_date,
                                                                             learn_end_date).get_periodic_intensity(
-                period_length)[start_hour:end_hour])
+                period_length, learn_start_date, learn_end_date)[start_hour:end_hour])
             for target in user.followers()
             ]
 
@@ -150,7 +129,8 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
         ])
 
     followers_conn_prob = [
-        np.array(target.tweet_list().sublist(learn_start_date, learn_end_date).get_connection_probability()[start_hour:end_hour])
+        np.array(target.tweet_list().sublist(learn_start_date, learn_end_date).
+                 get_connection_probability(period_length, learn_start_date, learn_end_date)[start_hour:end_hour])
         for target in user.followers()
         ]
 
@@ -158,8 +138,6 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
     print(upper_bounds)
     print('budget: ')
     print(budget)
-    print('# bad users: ')
-    print(no_bad_users)
 
     def _util(x):
         return util(x, followers_wall_intensities, followers_conn_prob, followers_weights, *extra_opt)
@@ -168,3 +146,29 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
         return util_gradient(x, followers_wall_intensities, followers_conn_prob, followers_weights, *extra_opt)
 
     return optimize(_util, _util_grad, budget, upper_bounds, threshold=threshold)
+
+
+def calculate_upper_bounds(user, learn_start_date, learn_end_date, start_hour, end_hour, our_intensity, period_length):
+
+    upper_bounds = np.zeros(len(our_intensity))
+    followers_wall_intensities = []
+    t_counter = 0.
+    for target in user.followers():
+        # Progressbar
+        t_counter += 1
+        print("\r[%% %.2f] processing %d" % (100. * t_counter / len(user.followers()), target.user_id()), end="")
+
+        target_wall_t_list = target.wall_tweet_list(excluded_user_id=user.user_id())
+        target_wall_t_list_sub = target_wall_t_list.sublist(learn_start_date, learn_end_date)
+        target_wall_intensity_all = target_wall_t_list_sub.get_periodic_intensity(period_length, learn_start_date,
+                                                                                  learn_end_date)
+        target_wall_intensity = target_wall_intensity_all[start_hour:end_hour]
+
+        followers_wall_intensities.append(np.array(target_wall_intensity))
+
+        _max = max([0] + [our_intensity[i] / target_wall_intensity[i]
+                          for i in range(len(our_intensity)) if target_wall_intensity[i] != 0.0])
+
+        upper_bounds += user.get_follower_weight(target) * _max * np.array(target_wall_intensity)
+
+    return upper_bounds

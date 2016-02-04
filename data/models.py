@@ -27,7 +27,7 @@ class ITweetList(object):
         else:
             self._current += 1
             return self[self._current - 1]
-        
+
     def _get_tweet_list(self):
         raise NotImplementedError()
 
@@ -69,7 +69,7 @@ class ITweetList(object):
         return TweetListView(self, slice_left, slice_right - slice_left)
 
     @cache_enabled
-    def get_periodic_intensity(self, period_length=24 * 7):
+    def get_periodic_intensity(self, period_length, start_date, end_date):
         """
         :param period_length: in hours, default is one week (must be an integer if time_slots is None)
         :return: intensity in the period length (returns the cached version if possible)
@@ -78,14 +78,15 @@ class ITweetList(object):
         if len(self) is 0:
             return [0.] * period_length
 
-        total_number_of_periods = int(self[-1] / 3600 / period_length) - int(self[0] / 3600 / period_length) + 1
+        total_number_of_periods = int(unix_timestamp(end_date) / 3600 / period_length) - \
+                                  int(unix_timestamp(start_date) / 3600 / period_length) + 1
 
         tweets_per_slot = helper.get_intensity_cy(self._get_tweet_list(), period_length)
 
         return [tps / total_number_of_periods for tps in tweets_per_slot]
 
     @cache_enabled
-    def get_connection_probability(self, period_length=24 * 7):
+    def get_connection_probability(self, period_length, start_date, end_date):
         """
         :param period_length: in hours, default is one week (must be an integer if time_slots is None)
         :return: probability of being online in each time slot during period length (cache support)
@@ -96,7 +97,8 @@ class ITweetList(object):
 
         bags = helper.get_connection_bags_cy(self._get_tweet_list(), period_length)
 
-        period_count = int(self[-1] / 3600 / period_length) - int(self[0] / 3600 / period_length) + 1
+        period_count = int(unix_timestamp(end_date) / 3600 / period_length) - \
+                       int(unix_timestamp(start_date) / 3600 / period_length) + 1
 
         return [bag / period_count for bag in bags]
 
@@ -114,7 +116,7 @@ class TweetList(ITweetList):
 
     def __getitem__(self, item):
         return self._tweet_times[item]
-    
+
     def __str__(self):
         return 'TweetList (%d tweets) %s' % (len(self), str(self._tweet_times))
 
@@ -123,13 +125,12 @@ class TweetList(ITweetList):
 
     def get_slice_index_right(self, time_ts):
         return bisect.bisect_right(self._tweet_times, time_ts)
-                                
+
     def _get_tweet_list(self):
         return self._tweet_times
 
 
 class TweetListView(ITweetList):
-
     def __init__(self, tweet_list, offset=0, size=-1):
         """
         :type tweet_list: ITweetList

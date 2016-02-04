@@ -31,8 +31,8 @@ def fetch_wall_array(user, learn_start_date, learn_end_date):
         print(target.user_id())
         sublist = target.wall_tweet_list().sublist(learn_start_date, learn_end_date)
 
-        intensity_arr[i, :] = sublist.get_periodic_intensity(24)
-        connection_arr[i, :] = sublist.get_connection_probability(24)
+        intensity_arr[i, :] = sublist.get_periodic_intensity(24, learn_start_date, learn_end_date)
+        connection_arr[i, :] = sublist.get_connection_probability(24, learn_start_date, learn_end_date)
 
     return intensity_arr, connection_arr
 

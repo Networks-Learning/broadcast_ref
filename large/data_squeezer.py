@@ -20,7 +20,7 @@ from util.cal import unix_timestamp
 test_start_date = datetime(2009, 6, 4)
 test_start_date_unix = unix_timestamp(test_start_date)
 test_end_date = datetime(2009, 9, 3)
-total_weeks = int((test_end_date - test_start_date).days / 7)
+total_days = int((test_end_date - test_start_date).days)
 
 in_path_prefix = '/local/moreka/np_data/'
 out_path_prefix = '/local/moreka/np_results/'
@@ -42,14 +42,14 @@ def do_practical_work(pid, user_id, month_list):
     repo = HDFSSQLiteUserRepository(HDFSLoader(), DbConnection())
     user = User(user_id, repo)
 
-    n = total_weeks * 7 * 24
+    n = total_days * 24
 
     result = []
 
     real_process = list(user.tweet_list().sublist(test_start_date, test_end_date))
     real_process = [(x - test_start_date_unix) / 3600. for x in real_process]
-    if any(real_process[i+1] < real_process[i] for i in range(len(real_process) - 1)):
-        print('the problem is in real process of user %d' % user_id)
+#     if any(real_process[i+1] < real_process[i] for i in range(len(real_process) - 1)):
+#         print('the problem is in real process of user %d' % user_id)
 
     data = {}
     before = []
@@ -78,7 +78,7 @@ def do_practical_work(pid, user_id, month_list):
     s_before = sum(before)
 
     for month in [3]:
-        best_intensity = np.tile(np.load('%s%08d_%02d_best.npy' % (in_path_prefix, user_id, month)), total_weeks * 7)  # TODO: clean this shit
+        best_intensity = np.tile(np.load('%s%08d_%02d_best.npy' % (in_path_prefix, user_id, month)), total_days)  # TODO: clean this shit
 
         for iteration in range(10):
             simulated_process = generate_piecewise_constant_poisson_process(best_intensity)
@@ -117,8 +117,9 @@ def worker(pid, user_id, num_months_to_learn, work):
 if __name__ == '__main__':
     multiprocessing.log_to_stderr(logging.INFO)
 
-    good_users = list(set(np.loadtxt('/local/moreka/broadcast-ref/Good-Users.txt', dtype='int').tolist()))
-#     good_users = [33830602]  #, 33830602, 16648152, 17404514, 6094672, 21010474]
+#     good_users = list(set(np.loadtxt('/local/moreka/broadcast-ref/Good-Users.txt', dtype='int').tolist()))
+#     good_users = [16173435, 33830602, 16648152, 17404514, 6094672, 21010474]
+    good_users = [790728]
 
     jobs = []
     for i in range(len(good_users)):
@@ -128,7 +129,7 @@ if __name__ == '__main__':
         #         jobs.append(p)
         #         p.start()
 
-        p = multiprocessing.Process(target=do_practical_work, args=(i + 1, good_users[i], [3, 6, 9]))
+        p = multiprocessing.Process(target=do_practical_work, args=(i + 1, good_users[i], [3]))
         jobs.append(p)
         p.start()
 

@@ -1,0 +1,5 @@
+[INFO/Process-1] child process calling self.run()
+[INFO/Process-1] process shutting down
+[INFO/Process-1] process exiting with exitcode 0
+Process-1.exitcode = 0
+[INFO/MainProcess] process shutting down

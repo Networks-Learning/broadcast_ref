@@ -68,8 +68,8 @@ if __name__ == '__main__':
     # good_users = [16173435]  #, 33830602, 16648152, 17404514, 6094672, 21010474]
 
     jobs = []
-    for i in range(len(good_users[:100])):
-        for months in [3]:
+    for i in range(len(good_users)):
+        for months in [6, 9]:
             p = multiprocessing.Process(target=worker, args=(i + 1, good_users[i], months,))
             jobs.append(p)
             p.start()

@@ -21,7 +21,9 @@ class HDFSLoader:
             print('ERR: [%s] %d' % (data, user_id))
 
     def get_tweets(self, user_id):
-        return self.get_data(user_id, 'tweets')
+        v = self.get_data(user_id, 'tweets')[:]
+        v.sort()
+        return v
 
     def get_followers(self, user_id):
         return self.get_data(user_id, 'followers')

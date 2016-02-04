@@ -12,6 +12,7 @@ from data.hdfs import HDFSLoader
 from data.user import User
 from data.user_repo import HDFSSQLiteUserRepository
 from opt.optimizer import learn_and_optimize
+from opt.utils import *
 from util.cal import unix_timestamp
 from simulator.simulate import generate_piecewise_constant_poisson_process, time_being_in_top_k
 from competitors.avm import ravm
@@ -26,8 +27,8 @@ n = total_days * 24
 learn_start_date = test_start_date - timedelta(days=3 * 30)  # TODO: suppose month is 3
 learn_end_date = test_start_date - timedelta(seconds=1)
 
-in_path_prefix = '/local/moreka/np_data/'
-out_path_prefix = '/local/moreka/np_results/'
+in_path_prefix = '/local/moreka/new_np_data/'
+out_path_prefix = '/local/moreka/new_np_results/'
 
 
 def fetch_wall_array(user):
@@ -45,26 +46,50 @@ def fetch_wall_array(user):
     return intensity_arr, connection_arr
 
 
-def worker(pid, user_id, month=3):
+def worker(pid, user_id, month, funcs):
     print '[Process-%d] Worker started for user %d' % (pid, user_id)
 
     repo = HDFSSQLiteUserRepository(HDFSLoader(), DbConnection())
     user = User(user_id, repo)
 
+    for func in funcs:
+        func(user, month)
+
     # TEST MODEL 1 #
-    fetch_and_save_wall_and_conn(user, month)
-    do_practical_test(user, month)
+    # fetch_and_save_wall_and_conn(user, month)
+    # do_practical_test(user, month)
 
     # TEST MODEL 2 #
-    do_theoretical_test(user, month)
+    # do_theoretical_test(user, month)
 
 
 def do_theoretical_test(user, month):
     wall_intensity_data = np.load('%s%08d_%02d_wall.npy' % (in_path_prefix, user.user_id(), month))
     conn_probability_data = np.load('%s%08d_%02d_conn.npy' % (in_path_prefix, user.user_id(), month))
-    best_intensity_avm = np.load('%s%08d_%02d_best_avm.npy' % (in_path_prefix, user.user_id(), month))
 
+    user_tweet_list__sublist = user.tweet_list().sublist(test_start_date, test_end_date)
+    user_learned_intensity= user_tweet_list__sublist.get_periodic_intensity(24, learn_start_date, learn_end_date)
 
+    target_count = wall_intensity_data.shape[0]
+
+    array_of_intensities = [
+        wall_intensity_data[i, :] for i in range(target_count)]
+
+    array_of_connections = [
+        conn_probability_data[i, :] for i in range(target_count)]
+
+    weights = np.ones(target_count) * (1. / target_count)
+
+    before = weighted_top_one(user_learned_intensity, array_of_intensities, array_of_connections, weights)
+    if before == 0.:
+        np.save('%sbad_%08d_%02d_vis_theo' % (out_path_prefix, user.user_id(), month), [-1.])
+        return
+
+    for test in ['avm', 'ravm']:
+        best_intensity = np.load('%s%08d_%02d_best_%s.npy' % (in_path_prefix, user.user_id(), month, test))
+        theo_result = weighted_top_one(best_intensity, array_of_intensities, array_of_connections, weights)
+
+        np.save('%s%08d_%02d_vis_theo_%s' % (out_path_prefix, user.user_id(), month, test), [theo_result / before])
 
 
 def fetch_and_save_wall_and_conn(user, month):
@@ -118,7 +143,7 @@ def do_practical_test(user, month):
     s_before = sum(before)
 
     if s_before == 0.:
-        np.save('%sbad_%08d_%02d_visibility_avm' % (out_path_prefix, user.user_id(), month), [-1.])
+        np.save('%sbad_%08d_%02d_vis_real' % (out_path_prefix, user.user_id(), month), [-1.])
 
     for test in ['avm', 'ravm']:
         test_competitor(test, user, data, month, s_before)
@@ -127,11 +152,11 @@ def do_practical_test(user, month):
 def test_competitor(test, user, data, month, s_before):
     print('testing %s' % test)
 
-    best_intensity_ravm = np.tile(
+    best_intensity = np.tile(
         np.load('%s%08d_%02d_best_%s.npy' % (in_path_prefix, user.user_id(), month, test)), total_days)
 
-    res = repeated_test(best_intensity_ravm, user, data) / s_before
-    np.save('%s%08d_%02d_visibility_%s' % (out_path_prefix, user.user_id(), month, test), [res])
+    res = repeated_test(best_intensity, user, data) / s_before
+    np.save('%s%08d_%02d_vis_real_%s' % (out_path_prefix, user.user_id(), month, test), [res])
 
     print('done testing %s %d' % (test, user.user_id()))
 
@@ -158,13 +183,26 @@ def collect_data(user):
 
 
 def main():
+    commands = {
+        'fetch': fetch_and_save_wall_and_conn,
+        'prac': do_practical_test,
+        'theo': do_theoretical_test,
+    }
+
+    funcs = []
+    for arg in sys.argv:
+        if arg in commands:
+            funcs.append(commands[arg])
+
     multiprocessing.log_to_stderr(logging.INFO)
+
     good_users = list(set(np.loadtxt('/local/moreka/broadcast-ref/Good-Users.txt', dtype='int').tolist()))
     rand_users = np.random.randint(0, len(good_users), 10)
+
     pool = multiprocessing.Pool(48)
     results = []
     for i in range(10):
-        results.append(pool.apply_async(worker, (i + 1, good_users[rand_users[i]], 3,)))
+        results.append(pool.apply_async(worker, (i + 1, good_users[rand_users[i]], 3, funcs, )))
     for i in range(10):
         results[i].get()
 

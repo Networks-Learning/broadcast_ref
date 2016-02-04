@@ -1,10 +1,12 @@
 from __future__ import division
 import bisect
 import numpy as np
+from math import ceil
 from util.cal import unix_timestamp
 from util.decorators import cache_enabled
+import pyximport;
 
-import pyximport; pyximport.install()
+pyximport.install()
 import helper
 
 
@@ -78,12 +80,12 @@ class ITweetList(object):
         if len(self) is 0:
             return [0.] * period_length
 
-        total_number_of_periods = int(unix_timestamp(end_date) / 3600 / period_length) - \
-                                  int(unix_timestamp(start_date) / 3600 / period_length) + 1
+        total_number_of_periods = int(ceil(unix_timestamp(end_date) / 3600 / period_length)) - \
+                                  int(unix_timestamp(start_date) / 3600 / period_length)
 
         tweets_per_slot = helper.get_intensity_cy(self._get_tweet_list(), period_length)
 
-        return [tps / total_number_of_periods for tps in tweets_per_slot]
+        return (tweets_per_slot / total_number_of_periods).tolist()
 
     @cache_enabled
     def get_connection_probability(self, period_length, start_date, end_date):
@@ -97,10 +99,10 @@ class ITweetList(object):
 
         bags = helper.get_connection_bags_cy(self._get_tweet_list(), period_length)
 
-        period_count = int(unix_timestamp(end_date) / 3600 / period_length) - \
-                       int(unix_timestamp(start_date) / 3600 / period_length) + 1
+        period_count = int(ceil(unix_timestamp(end_date) / 3600 / period_length)) - \
+                       int(unix_timestamp(start_date) / 3600 / period_length)
 
-        return [bag / period_count for bag in bags]
+        return (bags / period_count).tolist()
 
 
 class TweetList(ITweetList):

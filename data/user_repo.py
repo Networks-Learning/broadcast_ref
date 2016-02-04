@@ -21,11 +21,11 @@ class SQLiteUserRepository(UserRepository):
         return [t[0] for t in l]
 
     def get_user_followers(self, user_id):
-        l = self._conn.get_cursor().execute('select ida from li.links where idb=?', (user_id,)).fetchall()
+        l = self._conn.get_cursor().execute('select ida from li.links where idb=? order by ida', (user_id,)).fetchall()
         return [t[0] for t in l]
 
     def get_user_followees(self, user_id):
-        l = self._conn.get_cursor().execute('select idb from li.links where ida=?', (user_id,)).fetchall()
+        l = self._conn.get_cursor().execute('select idb from li.links where ida=? order by idb', (user_id,)).fetchall()
         return [t[0] for t in l]
 
     def get_user_wall(self, user_id, excluded=0):

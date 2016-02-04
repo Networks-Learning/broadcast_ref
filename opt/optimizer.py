@@ -146,7 +146,7 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
     def _util_grad(x):
         return util_gradient(x, followers_wall_intensities, followers_conn_prob, followers_weights, *extra_opt)
 
-    return optimize(_util, _util_grad, budget, upper_bounds, threshold=threshold)
+    return optimize(_util, _util_grad, budget, upper_bounds, threshold=threshold), upper_bounds
 
 
 def calculate_upper_bounds(user, learn_start_date, learn_end_date, start_hour, end_hour, our_intensity, period_length):

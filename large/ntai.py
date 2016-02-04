@@ -3,8 +3,7 @@ import logging
 import multiprocessing
 import numpy as np
 import sys
-
-from competitors.avm import ravm
+from Queue import Queue
 
 sys.path.append('/local/moreka/broadcast-ref')
 
@@ -16,6 +15,7 @@ from data.user_repo import HDFSSQLiteUserRepository
 from opt.optimizer import learn_and_optimize
 from util.cal import unix_timestamp
 from simulator.simulate import generate_piecewise_constant_poisson_process, time_being_in_top_k
+from competitors.avm import ravm
 
 test_start_date = datetime(2009, 5, 14)
 test_end_date = datetime(2009, 8, 13)
@@ -51,31 +51,43 @@ def worker(pid, user_id, num_months_to_learn):
     user = User(user_id, repo)
 
     wall_intensity_data, conn_probability_data = fetch_wall_array(user, learn_start_date, learn_end_date)
+    months = num_months_to_learn
 
     np.save('%s%08d_%02d_wall' % (in_path_prefix, user_id, months), wall_intensity_data)
     np.save('%s%08d_%02d_conn' % (in_path_prefix, user_id, months), conn_probability_data)
 
     budget = len(user.tweet_list().sublist(test_start_date, test_end_date)) / total_days
 
-    best_intensity = learn_and_optimize(user, budget=budget,
-                                        learn_start_date=learn_start_date,
-                                        learn_end_date=learn_end_date,
-                                        start_hour=0, end_hour=24,
-                                        period_length=24,
-                                        threshold=0.02)
+    best_intensity, upper_bounds = learn_and_optimize(user, budget=budget,
+                                                                learn_start_date=learn_start_date,
+                                                                learn_end_date=learn_end_date,
+                                                                start_hour=0, end_hour=24,
+                                                                period_length=24,
+                                                                threshold=0.02)
 
     np.save('%s%08d_%02d_best' % (in_path_prefix, user_id, months), np.array(best_intensity))
 
     print("Now let's do the practical work")
-    do_practical_test(user, num_months_to_learn)
+    do_practical_test(user, num_months_to_learn, upper_bounds)
 
     return
 
 
-def do_practical_test(user, month):
-    n = total_days * 24
-
+def repeated_test(intensity, user, data, n):
     result = []
+    for iteration in range(10):
+        simulated_process = generate_piecewise_constant_poisson_process(intensity)
+        now = []
+        for target in user.followers():
+            now.append(time_being_in_top_k(simulated_process,
+                                            data[target.user_id()]['wall_no_offset'], 1, n,
+                                            data[target.user_id()]['pi']))
+        result.append(sum(now))
+    return np.mean(result)
+
+
+def do_practical_test(user, month, upper_bounds):
+    n = total_days * 24
 
     real_process = list(user.tweet_list().sublist(test_start_date, test_end_date))
     real_process = [(x - test_start_date_unix) / 3600. for x in real_process]
@@ -109,42 +121,30 @@ def do_practical_test(user, month):
     s_before = sum(before)
 
     for month in [3]:
-        # best_intensity = np.tile(np.load('%s%08d_%02d_best.npy' % (in_path_prefix, user.user_id(), month)), total_days)
+        best_intensity = np.tile(np.load('%s%08d_%02d_best.npy' % (in_path_prefix, user.user_id(), month)), total_days)
 
-        _upper_bounds = [0.88449792, 0.89825591, 0.82612109, 0.73217901, 0.60110283, 0.48187091, 0.34743544, 0.24523225,
-                         0.22800378, 0.24452463, 0.33906424, 0.46037123, 0.58816083, 0.73650189, 0.82049608, 0.86519486,
-                         0.87568462, 0.88496817, 0.90678563, 0.87231136, 0.87518265, 0.84595004, 0.86786517, 0.89275554]
-        _budget = 18.2197802198
-
-        best_intensity = np.tile(ravm(_budget, _upper_bounds), total_days)
-
-        for iteration in range(10):
-            simulated_process = generate_piecewise_constant_poisson_process(best_intensity)
-            now = []
-            for target in user.followers():
-                now.append(
-            time_being_in_top_k(simulated_process,
-                                data[target.user_id()]['wall_no_offset'], 1, n,
-                                data[target.user_id()]['pi']))
-
-            result.append(sum(now) / s_before)
-
-        np.save('%s%08d_%02d_visibility_avm' % (out_path_prefix, user.user_id(), month), [np.mean(result)])
+        budget = sum(best_intensity)
+        best_intensity_ravm = np.tile(ravm(budget, upper_bounds), total_days)
+        
+        print('testing avm')
+        res = repeated_test(best_intensity, user, data, n) / s_before
+        np.save('%s%08d_%02d_visibility_avm' % (out_path_prefix, user.user_id(), month), [res])
+        
+        print('testing ravm')
+        res = repeated_test(best_intensity_ravm, user, data, n) / s_before
+        np.save('%s%08d_%02d_visibility_ravm' % (out_path_prefix, user.user_id(), month), [res])
 
 
 if __name__ == '__main__':
     multiprocessing.log_to_stderr(logging.INFO)
 
-    # good_users = np.loadtxt('/local/moreka/broadcast-ref/Good-Users.txt', dtype='int').tolist()
-    good_users = [33830602]
+    good_users = list(set(np.loadtxt('/local/moreka/broadcast-ref/Good-Users.txt', dtype='int').tolist()))
+    rand_users = np.random.randint(0, len(good_users), 10)
 
-    jobs = []
-    for i in range(len(good_users)):
-        for months in [3]:
-            p = multiprocessing.Process(target=worker, args=(i + 1, good_users[i], months,))
-            jobs.append(p)
-            p.start()
-
-    for j in jobs:
-        j.join()
-        sys.stderr.write('%s.exitcode = %s\n' % (j.name, j.exitcode))
+    pool = multiprocessing.Pool(48)
+    results = []
+    for i in range(10):
+        results.append(pool.apply_async(worker, (i + 1, good_users[rand_users[i]], 3,)))
+    
+    for i in range(10):
+        results[i].get()

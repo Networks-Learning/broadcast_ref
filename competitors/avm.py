@@ -12,7 +12,6 @@ METHOD_PAVM = 2
 
 
 def ravm(budget, upper_bounds):
-
     budget = min(budget, sum(upper_bounds))
     remained_budget = budget
 
@@ -30,25 +29,32 @@ def ravm(budget, upper_bounds):
     return result
 
 
-def iavm(budget, upper_bounds, user, test_start_date, test_end_date):
-    print('iavm')
+def ipavm(budget, upper_bounds,
+          followers_wall_intensities,
+          followers_conn_probabilities=None):
+
     budget = min(budget, sum(upper_bounds))
     remained_budget = budget
-    result = np.zeros(len(upper_bounds))
-    weights = np.zeros(len(upper_bounds))
-    probability = np.ones(len(upper_bounds))
-    
-    for follower in user.followers():
-        follower_wall_intensity = np.array(follower.wall_tweet_list().sublist(test_start_date, test_end_date).\
-        get_periodic_intensity()[:len(upper_bounds)])
-        weights += np.array([probability[i]/max(follower_wall_intensity[i], 1e-6) for i in range(len(upper_bounds))])
-        
-    weights = weights*(1/sum(weights))
-    
+    n = len(upper_bounds)
+
+    result = np.zeros(n)
+    weights = np.zeros(n)
+
+    if followers_conn_probabilities is None:
+        followers_conn_probabilities = np.ones(n)
+
+    for j in range(followers_wall_intensities.shape[0]):
+        follower_wall_intensity = followers_wall_intensities[j]
+        follower_connection_probability = followers_conn_probabilities[j]
+
+        weights += np.array([follower_connection_probability[i] / max(follower_wall_intensity[i], 1e-6) for i in range(n)])
+
+    weights *= 1 / sum(weights)
+
     while remained_budget > 1e-6:
 
         shares = remained_budget * weights
-        for i in range(len(upper_bounds)):
+        for i in range(n):
             if upper_bounds[i] - result[i] > 1e-6:
                 temp = min(shares[i], upper_bounds[i] - result[i])
                 result[i] += temp
@@ -56,35 +62,6 @@ def iavm(budget, upper_bounds, user, test_start_date, test_end_date):
 
     return result
 
-def pavm(budget, upper_bounds, user, test_start_date, test_end_date):
-    print('pavm')
-    budget = min(budget, sum(upper_bounds))
-    remained_budget = budget
-    result = np.zeros(len(upper_bounds))
-    weights = np.zeros(len(upper_bounds))
-    
-    followers_wall_intensities = np.zeros(len(upper_bounds))
-    
-    for follower in user.followers():
-        follower_wall_intensity = np.array(follower.wall_tweet_list().sublist(test_start_date, test_end_date).\
-        get_periodic_intensity()[:len(upper_bounds)])
-        follower_connection_probability = follower.tweet_list().sublist(test_start_date, test_end_date).\
-            get_connection_probability()[:len(upper_bounds)]
-        weights += np.array([follower_connection_probability[i]/max(follower_wall_intensity[i],1e-6) \
-                             for i in range(len(upper_bounds))])
-        
-    weights = weights*(1/sum(weights))
-    
-    while remained_budget > 1e-6:
-
-        shares = remained_budget * weights
-        for i in range(len(upper_bounds)):
-            if upper_bounds[i] - result[i] > 1e-6:
-                temp = min(shares[i], upper_bounds[i] - result[i])
-                result[i] += temp
-                remained_budget -= temp
-
-    return result
 
 def main():
     pass

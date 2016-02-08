@@ -63,7 +63,6 @@ def worker(pid, user_id, month, funcs):
         traceback.print_exc()
         
 
-
 def do_theoretical_test(user, month):
     wall_intensity_data = np.load('%s%08d_%02d_wall.npy' % (in_path_prefix, user.user_id(), month))
     conn_probability_data = np.load('%s%08d_%02d_conn.npy' % (in_path_prefix, user.user_id(), month))
@@ -152,24 +151,24 @@ def do_practical_test(user, month):
 
 def do_simulation_test(user, month):
     wall_intensity_data = np.load('%s%08d_%02d_wall.npy' % (in_path_prefix, user.user_id(), month))
-    conn_probability_data = np.tile(
-        np.load('%s%08d_%02d_conn.npy' % (in_path_prefix, user.user_id(), month)), total_days)
+    conn_probability_data = np.load('%s%08d_%02d_conn.npy' % (in_path_prefix, user.user_id(), month))
 
     user_tweet_list__sublist = user.tweet_list().sublist(learn_start_date, learn_end_date)
-    user_learned_intensity = np.tile(
-        np.array(user_tweet_list__sublist.get_periodic_intensity(24, learn_start_date, learn_end_date)), total_days)
+    user_learned_intensity = np.array(
+        user_tweet_list__sublist.get_periodic_intensity(24, learn_start_date, learn_end_date))
     
     for test in ['avm', 'ravm', 'iavm', 'pavm']:
         print('testing simul %s for %d' % (test, user.user_id()))
         
         try:
-            user_best_intensity = np.tile(
-                np.load('%s%08d_%02d_best_%s_learn.npy' % (in_path_prefix, user.user_id(), month, test)), total_days)
+            user_best_intensity = np.load(
+                '%s%08d_%02d_best_%s_learn.npy' % (in_path_prefix, user.user_id(), month, test))
+
         except IOError:
             continue
-        
+
         results = []
-        for i in range(10):
+        for i in range(1000):
             user_best_realization = generate_piecewise_constant_poisson_process(user_best_intensity)
             user_learned_realization = generate_piecewise_constant_poisson_process(user_learned_intensity)
             
@@ -186,7 +185,7 @@ def do_simulation_test(user, month):
                 now.append(time_being_in_top_k(user_best_realization,
                                                target_realization, 1, n,
                                                target_learned_connection))
-            if (sum(before) == 0.):
+            if sum(before) == 0.:
                 continue
 
             results.append(sum(now) / sum(before))

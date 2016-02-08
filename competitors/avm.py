@@ -41,14 +41,14 @@ def ipavm(budget, upper_bounds,
     weights = np.zeros(n)
 
     if followers_conn_probabilities is None:
-        followers_conn_probabilities = np.ones(n)
+        followers_conn_probabilities = np.ones((followers_wall_intensities.shape[0], n))
 
     for j in range(followers_wall_intensities.shape[0]):
         follower_wall_intensity = followers_wall_intensities[j]
         follower_connection_probability = followers_conn_probabilities[j]
 
         weights += np.array([follower_connection_probability[i] / max(follower_wall_intensity[i], 1e-6) for i in range(n)])
-
+        
     weights *= 1 / sum(weights)
 
     while remained_budget > 1e-6:

@@ -38,6 +38,14 @@ def projection(q, P, G, h, A, C):
 
 def optimize_base(util, grad, proj, x0, threshold, gamma=0.8, c=0.5):
     max_iterations = 666
+#     print('difference before and after proj:')
+#     print(x0 - proj(x0))
+#     print(np.linalg.norm(x0 - proj(x0)))
+#     print('difference between utils')
+#     print(util(x0) - util(proj(x0)))
+#     print('util of the first point x0')
+#     print(util(x0))
+    
     x = proj(x0)
 
     for i in range(max_iterations):
@@ -45,6 +53,7 @@ def optimize_base(util, grad, proj, x0, threshold, gamma=0.8, c=0.5):
         if i % 10 == 0:
             print(x)
         g = grad(x)
+
         d = proj(x + g * 100000.) - x
         s = gamma
         e_f = util(x)
@@ -71,8 +80,6 @@ def optimize(util, util_grad, budget, upper_bounds, threshold, x0=None):
         print("obvious case")
         return upper_bounds
 
-    x0 = np.array([0.] * len(upper_bounds)) if x0 is None else x0
-
     opt_rates = optimize_base(util, util_grad, proj, x0, threshold)
     delta = int(round(time.time() * 1000)) - start
     sys.stderr.write('Total time: %d' % delta)
@@ -85,7 +92,8 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
                        learn_start_date=None, learn_end_date=None,
                        util=utils.weighted_top_one, util_gradient=utils.weighted_top_one_grad,
                        threshold=0.005,
-                       extra_opt=None):
+                       extra_opt=None,
+                       x0=None):
     """
     :param budget: maximum budget we have
     :param period_length: length of the periods in hours
@@ -101,7 +109,7 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
     :type learn_end_date: datetime
     :return: optimized intensity with respect to parameters given
     """
-
+    
     if extra_opt is None:
         extra_opt = []
 
@@ -134,6 +142,10 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
                  get_connection_probability(period_length, learn_start_date, learn_end_date)[start_hour:end_hour])
         for target in user.followers()
         ]
+    
+    print('Fingerprints:')
+    print(np.sum(followers_wall_intensities))
+    print(np.sum(followers_conn_prob))
 
     print('upper bounds: ')
     print(upper_bounds)
@@ -146,7 +158,8 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
     def _util_grad(x):
         return util_gradient(x, followers_wall_intensities, followers_conn_prob, followers_weights, *extra_opt)
 
-    return optimize(_util, _util_grad, budget, upper_bounds, threshold=threshold), upper_bounds
+    x0 = np.array([0.] * len(upper_bounds)) if x0 is None else x0
+    return optimize(_util, _util_grad, budget, upper_bounds, threshold=threshold, x0=x0), upper_bounds
 
 
 def calculate_upper_bounds(user, learn_start_date, learn_end_date, start_hour, end_hour, our_intensity, period_length):

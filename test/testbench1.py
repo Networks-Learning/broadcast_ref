@@ -49,7 +49,7 @@ def test_avm(test_start_date, test_end_date, user, test_intensity, iterations=1)
                 if target.user_id() in pi_cache:
                     pi = pi_cache[target.user_id()]
                 else:
-                    tweet_bags = test_list.get_periodic_intensity(24)
+                    tweet_bags = test_list.get_periodic_intensity(24, test_start_date, test_end_date)
 
                     pi = np.zeros(24)
                     for j in range(24):

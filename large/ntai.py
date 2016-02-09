@@ -4,6 +4,7 @@ import multiprocessing
 import numpy as np
 import sys
 import traceback
+import os
 
 sys.path.append('/local/moreka/broadcast-ref')
 
@@ -158,42 +159,51 @@ def do_simulation_test(user, month):
         user_tweet_list__sublist.get_periodic_intensity(24, learn_start_date, learn_end_date))
     
     for test in ['avm', 'ravm', 'iavm', 'pavm']:
-        print('testing simul %s for %d' % (test, user.user_id()))
-        
         try:
             user_best_intensity = np.load(
                 '%s%08d_%02d_best_%s_learn.npy' % (in_path_prefix, user.user_id(), month, test))
 
         except IOError:
-            continue
-
-        results = []
-        for i in range(1000):
-            user_best_realization = generate_piecewise_constant_poisson_process(user_best_intensity)
-            user_learned_realization = generate_piecewise_constant_poisson_process(user_learned_intensity)
+            continue 
             
+        results = []
+
+        
+        if sum(user_best_intensity) > 1e-6 and sum(user_learned_intensity) > 1e-6:
             now, before = [], []
-            for idx, target in enumerate(user.followers()):
-                target_learned_intensity = wall_intensity_data[idx]
-                target_learned_connection = conn_probability_data[idx]
-                target_realization = generate_piecewise_constant_poisson_process(target_learned_intensity)
 
-                before.append(time_being_in_top_k(user_learned_realization,
-                                                  target_realization, 1, n,
-                                                  target_learned_connection))
+            for i in range(1000):
+                sum1, sum2 = 0 ,0
+                user_best_realization = generate_piecewise_constant_poisson_process(user_best_intensity)
+                user_learned_realization = generate_piecewise_constant_poisson_process(user_learned_intensity)
 
-                now.append(time_being_in_top_k(user_best_realization,
-                                               target_realization, 1, n,
-                                               target_learned_connection))
-            if sum(before) == 0.:
-                continue
 
-            results.append(sum(now) / sum(before))
+                for idx, target in enumerate(user.followers()):
+                    target_learned_intensity = wall_intensity_data[idx]
+                    target_learned_connection = conn_probability_data[idx]
+                    target_realization = generate_piecewise_constant_poisson_process(target_learned_intensity)
+
+                    sum2 += (time_being_in_top_k(user_learned_realization,
+                                                      target_realization, 1, 24,
+                                                      target_learned_connection))
+
+                    sum1 += (time_being_in_top_k(user_best_realization,
+                                                   target_realization, 1, 24,
+                                                   target_learned_connection))
+                now.append(sum1)
+                before.append(sum2)
+            if sum(before) < 1e-6 or sum(now) < 1e-6:
+                print('is it really possible!!! for user %d' %user.user_id())
+                break
+            else:
+                results.append(sum(now)/sum(before))
+
 
         if len(results) == 0.:
             np.save('%sbad_%08d_%02d_vis_simul' % (out_path_prefix, user.user_id(), month), [-1.])
             return
         
+#         print('the result for the user %d is %.2f' %(user.user_id(), np.mean(results)))
         np.save('%s%08d_%02d_vis_simul_%s' % (out_path_prefix, user.user_id(), month, test), [np.mean(results)])
         
 
@@ -272,14 +282,26 @@ def main():
 
 #     good_users = list(set(np.loadtxt('/local/moreka/broadcast-ref/Good-Users.txt', dtype='int').tolist()))
     good_users = np.load('good_users.npy').tolist()
+    already_seen_users = []
+    for f in os.listdir('/local/moreka/new_np_results/'):
+        try:
+            method = f.split('_')[3]
+            if method == 'simul':
+                already_seen_users.append(int(f.split('_')[0]))
+        except:
+            print('There is a problem in the name of %s' %f)
+            
+        
 #     good_users = [803059]
 
     pool = multiprocessing.Pool(48)
     results = []
     for i in range(len(good_users)):
-        results.append(pool.apply_async(worker, (i + 1, int(good_users[i]), 3, funcs, )))
+        if not (int(good_users[i]) in already_seen_users):
+            results.append(pool.apply_async(worker, (i + 1, int(good_users[i]), 3, funcs, )))
     for i in range(len(good_users)):
-        results[i].get()
+        if int(good_users[i]) not in already_seen_users:
+            results[i].get()
 
 
 if __name__ == '__main__':

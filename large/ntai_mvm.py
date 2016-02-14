@@ -4,6 +4,7 @@ import multiprocessing
 import numpy as np
 import sys
 import traceback
+from os.path import isfile
 
 sys.path.append('/local/moreka/broadcast-ref')
 
@@ -29,7 +30,8 @@ learn_start_date = test_start_date - timedelta(days=3 * 30)  # TODO: suppose mon
 learn_end_date = test_start_date - timedelta(seconds=1)
 
 in_path_prefix = '/local/moreka/new_np_data/'
-out_path_prefix = '/local/moreka/new_np_results/'
+mid_path_prefix = '/local/moreka/new_np_data_mvm/'
+out_path_prefix = '/local/moreka/new_np_results_mvm/'
 
 
 def worker(pid, user_id, month, funcs):
@@ -46,42 +48,6 @@ def worker(pid, user_id, month, funcs):
         traceback.print_exc()
 
 
-def do_theoretical_test(user, month):
-    wall_intensity_data = np.load('%s%08d_%02d_wall.npy' % (in_path_prefix, user.user_id(), month))
-    conn_probability_data = np.load('%s%08d_%02d_conn.npy' % (in_path_prefix, user.user_id(), month))
-
-    user_tweet_list__sublist = user.tweet_list().sublist(learn_start_date, learn_end_date)
-    user_learned_intensity = np.array(user_tweet_list__sublist.get_periodic_intensity(24, learn_start_date, learn_end_date))
-
-    target_count = wall_intensity_data.shape[0]
-    weights = np.ones(target_count) * (1. / target_count)
-
-    before = max_min_top_one(user_learned_intensity, wall_intensity_data, conn_probability_data, weights)
-    if before == 0.:
-        np.save('%sbad_%08d_%02d_mvm_vis_theo' % (out_path_prefix, user.user_id(), month), [-1.])
-        return
-
-    for test in ['mvm', 'ravm', 'iavm', 'pavm']:
-        best_intensity = np.load('%s%08d_%02d_best_%s_learn.npy' % (in_path_prefix, user.user_id(), month, test))
-        theo_result = max_min_top_one(best_intensity, wall_intensity_data, conn_probability_data, weights)
-
-        np.save('%s%08d_%02d_vis_theo_mvm_%s' % (out_path_prefix, user.user_id(), month, test), [theo_result / before])
-
-        
-def get_best_intensity_mvm(user, budget, month, title):
-    best_intensity, upper_bounds = learn_and_optimize(user, budget=budget,
-                                                      learn_start_date=learn_start_date,
-                                                      learn_end_date=learn_end_date,
-                                                      util=max_min_top_one,
-                                                      util_gradient=max_min_top_one_grad,
-                                                      start_hour=0, end_hour=24,
-                                                      period_length=24,
-                                                      upper_bounds=np.ones(24) * 1000.,
-                                                      threshold=0.02)
-
-    np.save('%s%08d_%02d_best_mvm_%s' % (in_path_prefix, user.user_id(), month, title), np.array(best_intensity))
-
-
 def fetch_and_save_wall_and_conn(user, month):
     budget = len(user.tweet_list().sublist(test_start_date, test_end_date)) / total_days
     get_best_intensity_mvm(user, budget, month, 'test')
@@ -90,17 +56,70 @@ def fetch_and_save_wall_and_conn(user, month):
     get_best_intensity_mvm(user, budget, month, 'learn')
 
 
-def repeated_test(intensity, user, data):
-    result = []
-    for iteration in range(10):
-        simulated_process = generate_piecewise_constant_poisson_process(intensity)
-        now = []
-        for target in user.followers():
-            now.append(time_being_in_top_k(simulated_process,
-                                           data[target.user_id()]['wall_no_offset'], 1, n,
-                                           data[target.user_id()]['pi']))
-        result.append(sum(now))
-    return np.mean(result)
+def get_best_intensity_mvm(user, budget, month, title):
+    wall_intensity_data = np.load('%s%08d_%02d_wall.npy' % (in_path_prefix, user.user_id(), month))
+    conn_probability_data = np.load('%s%08d_%02d_conn.npy' % (in_path_prefix, user.user_id(), month))
+    
+    sum_conn_prob = np.sum(conn_probability_data, axis=1)
+    indices = sum_conn_prob >= 0.1
+    
+    if not np.any(indices):
+        raise RuntimeError('This is really a bad user: %d since no good followers!' % user.user_id())
+    
+    if title == 'learn':
+        user_tweet_list__sublist = user.tweet_list().sublist(learn_start_date, learn_end_date)
+        user_learned_intensity = np.array(user_tweet_list__sublist.get_periodic_intensity(24, learn_start_date, learn_end_date))
+    else:
+        user_tweet_list__sublist = user.tweet_list().sublist(test_start_date, test_end_date)
+        user_learned_intensity = np.array(user_tweet_list__sublist.get_periodic_intensity(24, test_start_date, test_end_date))
+    
+    best_intensity,_ = learn_and_optimize(user, budget=budget,
+                                          learn_start_date=learn_start_date,
+                                          learn_end_date=learn_end_date,
+                                          util=max_min_top_one_smt,
+                                          util_gradient=max_min_top_one_smt_grad,
+                                          start_hour=0, end_hour=24,
+                                          period_length=24,
+                                          upper_bounds=np.ones(24) * 1000.,
+                                          threshold=0.001,
+                                          conn=conn_probability_data[indices],
+                                          inten=wall_intensity_data[indices],
+                                          x0=user_learned_intensity)
+
+    np.save('%s%08d_%02d_best_mvm_%s' % (mid_path_prefix, user.user_id(), month, title), np.array(best_intensity))
+
+
+def do_theoretical_test(user, month):
+    wall_intensity_data = np.load('%s%08d_%02d_wall.npy' % (in_path_prefix, user.user_id(), month))
+    conn_probability_data = np.load('%s%08d_%02d_conn.npy' % (in_path_prefix, user.user_id(), month))
+
+    sum_conn_prob = np.sum(conn_probability_data, axis=1)
+    indices = sum_conn_prob >= 0.1
+    
+    wall_intensity_data = wall_intensity_data[indices]
+    conn_probability_data = conn_probability_data[indices]
+    
+    user_tweet_list__sublist = user.tweet_list().sublist(learn_start_date, learn_end_date)
+    user_learned_intensity = np.array(user_tweet_list__sublist.get_periodic_intensity(24, learn_start_date, learn_end_date))
+
+    weights = np.ones(1)  # just a dummy value ;-)
+    
+    before = max_min_top_one_smt(user_learned_intensity, wall_intensity_data, conn_probability_data, weights)
+    if before == 0.:
+        np.save('%sbad_%08d_%02d_mvm_vis_theo' % (out_path_prefix, user.user_id(), month), [-1.])
+        return
+
+    for test in ['mvm']:
+        best_intensity = np.load('%s%08d_%02d_best_%s_learn.npy' % (mid_path_prefix, user.user_id(), month, test))
+        theo_result = max_min_top_one_smt(best_intensity, wall_intensity_data, conn_probability_data, weights)
+
+        np.save('%s%08d_%02d_vis_theo_mvm_%s' % (out_path_prefix, user.user_id(), month, test), [theo_result / before, theo_result, before])
+
+    for test in ['iavm', 'pavm', 'ravm']:
+        best_intensity = np.load('%s%08d_%02d_best_%s_learn.npy' % (in_path_prefix, user.user_id(), month, test))
+        theo_result = max_min_top_one_smt(best_intensity, wall_intensity_data, conn_probability_data, weights)
+
+        np.save('%s%08d_%02d_vis_theo_mvm_%s' % (out_path_prefix, user.user_id(), month, test), [theo_result / before, theo_result, before])
 
 
 def do_practical_test(user, month):
@@ -114,63 +133,23 @@ def do_practical_test(user, month):
         before.append(time_being_in_top_k(real_process,
                                           data[target.user_id()]['wall_no_offset'], 1, n,
                                           data[target.user_id()]['pi']))
+    
+    before = np.array(before)
+    before_p = before[before > 0]
 
-    s_before = sum(before)
-
+    if before_p.shape[0] == 0:
+        np.save('%sbad_%08d_%02d_vis_real_mvm' % (out_path_prefix, user.user_id(), month), [-1.])
+        return
+    
+    before.sort()
+    s_before = np.mean(before[:10])
+    
     if s_before == 0.:
-        np.save('%sbad_%08d_%02d_vis_real' % (out_path_prefix, user.user_id(), month), [-1.])
+        return
 
-    for test in ['avm', 'ravm', 'pavm', 'iavm']:
+    for test in ['mvm', 'ravm', 'pavm', 'iavm']:
         test_competitor(test, user, data, month, s_before)
 
-
-def do_simulation_test(user, month):
-    wall_intensity_data = np.load('%s%08d_%02d_wall.npy' % (in_path_prefix, user.user_id(), month))
-    conn_probability_data = np.load('%s%08d_%02d_conn.npy' % (in_path_prefix, user.user_id(), month))
-
-    user_tweet_list__sublist = user.tweet_list().sublist(learn_start_date, learn_end_date)
-    user_learned_intensity = np.array(
-        user_tweet_list__sublist.get_periodic_intensity(24, learn_start_date, learn_end_date))
-    
-    for test in ['avm', 'ravm', 'iavm', 'pavm']:
-        print('testing simul %s for %d' % (test, user.user_id()))
-        
-        try:
-            user_best_intensity = np.load(
-                '%s%08d_%02d_best_%s_learn.npy' % (in_path_prefix, user.user_id(), month, test))
-
-        except IOError:
-            continue
-
-        results = []
-        for i in range(1000):
-            user_best_realization = generate_piecewise_constant_poisson_process(user_best_intensity)
-            user_learned_realization = generate_piecewise_constant_poisson_process(user_learned_intensity)
-            
-            now, before = [], []
-            for idx, target in enumerate(user.followers()):
-                target_learned_intensity = wall_intensity_data[idx]
-                target_learned_connection = conn_probability_data[idx]
-                target_realization = generate_piecewise_constant_poisson_process(target_learned_intensity)
-
-                before.append(time_being_in_top_k(user_learned_realization,
-                                                  target_realization, 1, n,
-                                                  target_learned_connection))
-
-                now.append(time_being_in_top_k(user_best_realization,
-                                               target_realization, 1, n,
-                                               target_learned_connection))
-            if sum(before) == 0.:
-                continue
-
-            results.append(sum(now) / sum(before))
-
-        if len(results) == 0.:
-            np.save('%sbad_%08d_%02d_vis_simul' % (out_path_prefix, user.user_id(), month), [-1.])
-            return
-        
-        np.save('%s%08d_%02d_vis_simul_%s' % (out_path_prefix, user.user_id(), month, test), [np.mean(results)])
-        
 
 def test_competitor(test, user, data, month, s_before):
     print('testing %s' % test)
@@ -179,40 +158,47 @@ def test_competitor(test, user, data, month, s_before):
         np.load('%s%08d_%02d_best_%s_test.npy' % (in_path_prefix, user.user_id(), month, test)), total_days)
 
     res = repeated_test(best_intensity, user, data) / s_before
-    np.save('%s%08d_%02d_vis_real_%s' % (out_path_prefix, user.user_id(), month, test), [res])
+    if res >= 0.:
+        np.save('%s%08d_%02d_vis_real_mvm_%s' % (out_path_prefix, user.user_id(), month, test), [res])
 
     print('done testing %s %d' % (test, user.user_id()))
 
 
-def do_calculate_competitors(user, month):
-    print('... user %d ...' % user.user_id())
-    wall_intensity_data = np.load('%s%08d_%02d_wall.npy' % (in_path_prefix, user.user_id(), month))
-    conn_probability_data = np.load('%s%08d_%02d_conn.npy' % (in_path_prefix, user.user_id(), month))
-    
-    upper_bounds = np.ones(24) * 1000.
-    
-    title = 'learn'
-    budget = len(user.tweet_list().sublist(learn_start_date, learn_end_date)) / total_days
-    iavm_best_intensity = ipavm(budget, upper_bounds, wall_intensity_data)
-    pavm_best_intensity = ipavm(budget, upper_bounds, wall_intensity_data, conn_probability_data)
-    
-    np.save('%s%08d_%02d_best_iavm_%s' % (in_path_prefix, user.user_id(), month, title), np.array(iavm_best_intensity))
-    np.save('%s%08d_%02d_best_pavm_%s' % (in_path_prefix, user.user_id(), month, title), np.array(pavm_best_intensity))
-    
-    title = 'test'
-    budget = len(user.tweet_list().sublist(test_start_date, test_end_date)) / total_days
-    iavm_best_intensity = ipavm(budget, upper_bounds, wall_intensity_data)
-    pavm_best_intensity = ipavm(budget, upper_bounds, wall_intensity_data, conn_probability_data)
-    
-    np.save('%s%08d_%02d_best_iavm_%s' % (in_path_prefix, user.user_id(), month, title), np.array(iavm_best_intensity))
-    np.save('%s%08d_%02d_best_pavm_%s' % (in_path_prefix, user.user_id(), month, title), np.array(pavm_best_intensity))
+def repeated_test(intensity, user, data):
+    result = []
+    for iteration in range(10):
+        simulated_process = generate_piecewise_constant_poisson_process(intensity)
+        now = []
+        for target in user.followers():
+            now.append(time_being_in_top_k(simulated_process,
+                                           data[target.user_id()]['wall_no_offset'], 1, n,
+                                           data[target.user_id()]['pi']))
+        if len(now):
+            now.sort()
+            result.append(np.mean(now[:10]))
+
+    if len(result):
+        return np.mean(result)
+    else:
+        return -1
 
 
 def collect_data(user):
     data = {}
+    
+    conn_probability_data = np.load('%s%08d_%02d_conn.npy' % (in_path_prefix, user.user_id(), 3))
+    sum_conn_prob = np.sum(conn_probability_data, axis=1)
+    indices = sum_conn_prob >= 0.1
+    
+    new_followers = []
+    
+    for i in range(len(user.followers())):
+        if indices[i]:
+            new_followers.append(user.followers()[i])
+    
+    user._followers__ = new_followers
 
     for target in user.followers():
-        print(target.user_id())
         test_list = target.wall_tweet_list(excluded_user_id=user.user_id()).sublist(test_start_date, test_end_date)
         target_wall_no_offset = ((test_list._get_tweet_list() - test_start_date_unix) / 3600.).tolist()
 
@@ -229,13 +215,90 @@ def collect_data(user):
     return data
 
 
+def do_simulation_test(user, month):
+    wall_intensity_data = np.load('%s%08d_%02d_wall.npy' % (in_path_prefix, user.user_id(), month))
+    conn_probability_data = np.load('%s%08d_%02d_conn.npy' % (in_path_prefix, user.user_id(), month))
+
+    user_tweet_list__sublist = user.tweet_list().sublist(learn_start_date, learn_end_date)
+    user_learned_intensity = np.array(user_tweet_list__sublist.get_periodic_intensity(24, learn_start_date, learn_end_date))
+    
+    sum_conn_prob = np.sum(conn_probability_data, axis=1)
+    indices = sum_conn_prob >= 0.1
+    
+    new_followers = []
+    for i in range(len(user.followers())):
+        if indices[i]:
+            new_followers.append(user.followers()[i])
+    
+    user._followers__ = new_followers
+    
+    conn_probability_data = conn_probability_data[indices]
+    wall_intensity_data = wall_intensity_data[indices]
+    
+    for test in ['mvm', 'ravm', 'iavm', 'pavm']:
+        if test == 'mvm':
+            path = mid_path_prefix
+        else:
+            path = in_path_prefix
+
+        try:
+            user_best_intensity = np.load(
+                '%s%08d_%02d_best_%s_learn.npy' % (path, user.user_id(), month, test))
+        except IOError:
+            continue
+            
+        results = []
+        
+        if sum(user_best_intensity) > 1e-6 and sum(user_learned_intensity) > 1e-6:
+            now, before = [], []
+
+            for i in range(300):
+                user_best_realization = generate_piecewise_constant_poisson_process(user_best_intensity)
+                user_learned_realization = generate_piecewise_constant_poisson_process(user_learned_intensity)
+
+                vis_now = []
+                vis_before = []
+                for idx, target in enumerate(user.followers()):
+                    target_learned_intensity = wall_intensity_data[idx]
+                    target_learned_connection = conn_probability_data[idx]
+                    target_realization = generate_piecewise_constant_poisson_process(target_learned_intensity)
+
+                    vis_before.append(time_being_in_top_k(user_learned_realization,
+                                                      target_realization, 1, 24,
+                                                      target_learned_connection))
+
+                    vis_now.append(time_being_in_top_k(user_best_realization,
+                                                   target_realization, 1, 24,
+                                                   target_learned_connection))
+                
+                vis_now.sort()
+                vis_before.sort()
+                
+                now.append(np.sum(vis_now[:10]))
+                before.append(np.sum(vis_before[:10]))
+
+            if sum(before) < 1e-6 or sum(now) < 1e-6:
+                print('is it really possible!!! for user %d' %user.user_id())
+                break
+            else:
+                results.append(sum(now)/sum(before))
+
+
+        if len(results) == 0.:
+            np.save('%sbad_%08d_%02d_vis_simul' % (out_path_prefix, user.user_id(), month), [-1.])
+            return
+        
+#         print('the result for the user %d is %.2f' %(user.user_id(), np.mean(results)))
+        np.save('%s%08d_%02d_vis_simul_%s' % (out_path_prefix, user.user_id(), month, test), [np.mean(results)])
+
+
 def main():
     commands = {
         'fetch': fetch_and_save_wall_and_conn,
         'prac': do_practical_test,
         'theo': do_theoretical_test,
         'simul': do_simulation_test,
-        'comp': do_calculate_competitors,
+#         'comp': do_calculate_competitors,
     }
 
     funcs = []
@@ -245,9 +308,7 @@ def main():
 
     multiprocessing.log_to_stderr(logging.INFO)
 
-#     good_users = list(set(np.loadtxt('/local/moreka/broadcast-ref/Good-Users.txt', dtype='int').tolist()))
-    good_users = np.load('good_users.npy').tolist()
-#     good_users = [803059]
+    good_users = np.load('good_users.npy').tolist()[100:]
 
     pool = multiprocessing.Pool(48)
     results = []

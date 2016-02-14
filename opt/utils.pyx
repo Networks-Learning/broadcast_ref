@@ -103,18 +103,18 @@ cpdef double expected_f_top_k(np.ndarray lambda1, np.ndarray lambda2, int k, np.
         c = lambda1[m]
 
         if b + c < 1e-5:
-            result += h[k-1]
+            result += h[k-1] * pi[m]
             h = f(1, k, b, c, h)
             continue
 
         betas = get_betas(k, b, c)
         alphas = get_alphas(k, betas, h, b, c)
 
-        result += betas[k-1]
+        result += betas[k-1]*pi[m]
         for i in range(k):
             temp = alphas[i] * pow(b+c, -i-1)
             temp *= our_gamma_function(i, b+c)
-            result += temp
+            result += temp * pi[m]
             
         h = f(1, k, b, c, h)
     return result
@@ -182,7 +182,7 @@ cdef double f_top_one(double t, double b, double c, double h):
     return f(t, 1, b, c, h_arr)[0]
 
 
-cdef double expected_f_top_one(np.ndarray lambda1, np.ndarray lambda2, np.ndarray pi):
+cpdef double expected_f_top_one(np.ndarray lambda1, np.ndarray lambda2, np.ndarray pi):
     cdef int M = lambda2.shape[0]
     cdef double e_f = 0
     cdef double h = 0
@@ -257,7 +257,7 @@ cdef np.ndarray h_hessian_values(np.ndarray lambda1, np.ndarray lambda2, np.ndar
     return dh_dc
 
 
-cdef np.ndarray gradient_top_one(np.ndarray lambda1, np.ndarray lambda2, np.ndarray pi):
+cpdef np.ndarray gradient_top_one(np.ndarray lambda1, np.ndarray lambda2, np.ndarray pi):
     cdef int M = lambda1.shape[0]
     cdef np.ndarray grad = np.zeros(M, dtype=np.double)
     cdef np.ndarray q = q_values(lambda1, lambda2)
@@ -322,26 +322,42 @@ def weighted_top_one_k_grad(lambda1, lambda2_list, conn_probs, weights, *args):
 
 
 def max_min_top_one(lambda1, lambda2_list, conn_probs, weights, *args):
-    s = np.inf
-    for i in range(len(lambda2_list)):
-        if np.sum(conn_probs[i]) < 1e-6:
-            continue
-        s = min(s, expected_f_top_one(lambda1, lambda2_list[i], conn_probs[i]))
-    return s
-
+    es = np.array(
+        [expected_f_top_one(lambda1, lambda2_list[i], conn_probs[i])
+         for i in range(len(lambda2_list))])
+    
+    return np.min(es)
 
 def max_min_top_one_grad(lambda1, lambda2_list, conn_probs, weights, *args):
-    x = np.inf
-    ind = 0
-    for i in range(len(lambda2_list)):
-        if np.sum(conn_probs[i]) < 1e-6:
-            continue
-        v = expected_f_top_one(lambda1, lambda2_list[i], conn_probs[i])
-        if v <= x:
-            x = v
-            ind = i
-
+    es = np.array(
+        [expected_f_top_one(lambda1, lambda2_list[i], conn_probs[i])
+         for i in range(len(lambda2_list))])
+    
+    ind = np.argmin(es)
+    print('min is at %d' % ind)
     return gradient_top_one(lambda1, lambda2_list[ind], conn_probs[ind])
+
+
+def max_min_top_one_smt(lambda1, lambda2_list, conn_probs, weights, *args):
+    es = np.array(
+        [expected_f_top_one(lambda1, lambda2_list[i], conn_probs[i])
+         for i in range(len(lambda2_list))])
+    es.sort()
+    
+    return np.mean(es[:10])
+
+def max_min_top_one_smt_grad(lambda1, lambda2_list, conn_probs, weights, *args):
+    es = np.array(
+        [expected_f_top_one(lambda1, lambda2_list[i], conn_probs[i])
+         for i in range(len(lambda2_list))])
+    
+    inds = np.argsort(es)[:10]
+    gs = np.zeros(24)
+    for ind in inds:
+        gs += gradient_top_one(lambda1, lambda2_list[ind], conn_probs[ind])
+    
+    return gs / len(inds)
+
 
 
 def weighted_top_k(lambda1, lambda2_list, conn_probs, weights, k, *args):

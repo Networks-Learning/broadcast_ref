@@ -54,16 +54,21 @@ def optimize_base(util, grad, proj, x0, threshold, gamma=0.8, c=0.5):
             print(x)
         g = grad(x)
 
-        d = proj(x + g * 100000.) - x
+        d = proj(x + g * 1000.) - x
         s = gamma
         e_f = util(x)
 
         while util(x + s * d) - e_f < c * s * np.dot(np.transpose(g), d) and np.linalg.norm(s * d) > threshold:
             s *= gamma
 
-        x += s * d
         if np.linalg.norm(s * d) < threshold:
             break
+        
+        if util(x + s * d) - e_f > 0:
+            x += s * d
+        else:
+            break
+        
     print('Done within %d iterations!' % i)
 
     return x
@@ -93,7 +98,8 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
                        util=utils.weighted_top_one, util_gradient=utils.weighted_top_one_grad,
                        threshold=0.005,
                        extra_opt=None,
-                       x0=None):
+                       x0=None,
+                       conn=None, inten=None):
     """
     :param budget: maximum budget we have
     :param period_length: length of the periods in hours
@@ -125,28 +131,33 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
                                                                           learn_start_date, learn_end_date,
                                                                           start_hour, end_hour, oi, period_length)
     else:
-        followers_wall_intensities = [
-            np.array(target.wall_tweet_list(excluded_user_id=user.user_id()).sublist(learn_start_date,
-                                                                            learn_end_date).get_periodic_intensity(
-                period_length, learn_start_date, learn_end_date)[start_hour:end_hour])
-            for target in user.followers()
-            ]
+        if inten is None:
+            followers_wall_intensities = [
+                np.array(target.wall_tweet_list(excluded_user_id=user.user_id()).sublist(learn_start_date,
+                                                                                learn_end_date).get_periodic_intensity(
+                    period_length, learn_start_date, learn_end_date)[start_hour:end_hour])
+                for target in user.followers()
+                ]
+        else:
+            followers_wall_intensities = inten
 
     followers_weights = np.array([
         user.get_follower_weight(target)
         for target in user.followers()
         ])
-
-    followers_conn_prob = [
-        np.array(target.tweet_list().sublist(learn_start_date, learn_end_date).
-                 get_connection_probability(period_length, learn_start_date, learn_end_date)[start_hour:end_hour])
-        for target in user.followers()
-        ]
     
-    print('Fingerprints:')
-    print(np.sum(followers_wall_intensities))
-    print(np.sum(followers_conn_prob))
-
+    if conn is None:
+        followers_conn_prob = [
+            np.array(target.tweet_list().sublist(learn_start_date, learn_end_date).
+                     get_connection_probability(period_length, learn_start_date, learn_end_date)[start_hour:end_hour])
+            for target in user.followers()
+            ]
+    else:
+        if type(conn) is dict:
+            followers_conn_prob = [conn[target.user_id()] for target in user.followers()]
+        else:
+            followers_conn_prob = conn
+    
     print('upper bounds: ')
     print(upper_bounds)
     print('budget: ')

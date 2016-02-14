@@ -2,6 +2,7 @@ from __future__ import division
 import numpy as np
 import traceback
 import sys
+import math
 
 
 def generate_poisson_process(rate, time_start, time_end):
@@ -96,6 +97,7 @@ def time_being_in_top_k(_process1, _process2, k, end_of_time, pi, process1_initi
         process1_position += 1
 
     while it1 < len(process1) -1 or it2 < len(process2) - 1:
+        try:
             if process1[it1] < process2[it2]:
                 if process1_position <= k:
                     time_on_top += calculate_real_visibility_time(last_time_event, process1[it1], pi)
@@ -110,6 +112,9 @@ def time_being_in_top_k(_process1, _process2, k, end_of_time, pi, process1_initi
                 last_time_event = process2[it2]
                 it2 += 1
                 process1_position += 1
+        except:
+            print('exception with it1=%d and it2=%d while lengths are %d and %d ' %(it1, it2, len(process1), len(process2)))
+            break
 
     if process1_position <= k:
         time_on_top += calculate_real_visibility_time(last_time_event, end_of_time, pi)
@@ -147,6 +152,51 @@ def get_expectation_std_top_k_practice(lambda1, process2, k, pi, number_of_itera
         times_on_top += [time_being_in_top_k(process1, process2, k, len(lambda1), pi)]
 
     return [np.mean(times_on_top), np.std(times_on_top)]
+
+
+def time_slot_being_in_top_k(p1, p2, k, start_time, end_time, initial_position=None):
+    """
+
+    :param _p1: process1 points
+    :param _p2: process2 points
+    :param k: the famous K
+    :param start_time: it's obvious
+    :param end_time: it's obvious
+    :return: a list of intervals in which _p1 has a point in top-k last point
+    """
+    mid_result = []
+    final_result = []
+    it1, it2 = 0, 0
+    if initial_position is None:
+        initial_position = k + 1
+
+    p1.append(end_time)
+    p2.append(end_time)
+
+    position = initial_position
+    slices, step_size = np.linspace(start_time, end_time, num=999999, retstep=True)
+
+    for begining in slices[:-1]:
+        while it1 < len(p1) and begining < p1[it1] <= begining + step_size:
+            position = 1
+            it1 += 1
+        while it2 < len(p2) and begining < p2[it2] <= begining + step_size:
+            position += 1
+            it2 += 1
+        if position <= k:
+            mid_result.append(begining)
+    iterator = 0
+
+    while iterator < len(mid_result):
+        start = mid_result[iterator]
+        end = mid_result[iterator] + step_size
+        iterator += 1
+        while iterator < len(mid_result) and math.fabs(end - mid_result[iterator]) < 1e-4:
+            end = end + step_size
+            iterator += 1
+        final_result.append([start, end])
+
+    return final_result
 
 
 def main():

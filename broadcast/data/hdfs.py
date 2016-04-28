@@ -8,8 +8,10 @@ def get_group(user_id):
 
 
 class HDFSLoader:
-    def __init__(self):
-        self.h5f = h5py.File('/dev/shm/tweets_all.h5', 'r')
+    def __init__(self, file_path=None):
+        if file_path is None:
+            file_path = '/dev/shm/tweets_all.h5'
+        self.h5f = h5py.File(file_path, 'r')
 
     def __del__(self):
         self.h5f.close()

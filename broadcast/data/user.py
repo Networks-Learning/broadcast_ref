@@ -1,10 +1,10 @@
 from __future__ import division
 import random
 import sys
-from data import models
+from ..data import models
 import numpy as np
 
-from util.decorators import cache_enabled
+from ..util.decorators import cache_enabled
 
 
 class User:
@@ -89,7 +89,7 @@ class User:
     def followers_weights(self):
         if self._followers_weights is not None:
             return self._followers_weights
-        
+
         self._followers_weights = {}
 
         follower_count = len(self.followers())

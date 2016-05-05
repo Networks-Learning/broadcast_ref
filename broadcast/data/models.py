@@ -2,12 +2,12 @@ from __future__ import division
 import bisect
 import numpy as np
 from math import ceil
-from util.cal import unix_timestamp
-from util.decorators import cache_enabled
+from ..util.cal import unix_timestamp
+from ..util.decorators import cache_enabled
 import pyximport;
 
 pyximport.install()
-import helper
+from ..data import helper
 
 
 class ITweetList(object):

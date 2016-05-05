@@ -1,8 +1,13 @@
 from __future__ import division, print_function
 import numpy as np
 from cvxopt import matrix, solvers
-from opt import utils
-from data.user import User
+import pyximport; pyximport.install()
+
+from ..opt import utils
+
+# from opt import utils
+# import opt_utils as utils
+from ..data.user import User
 import time
 import sys
 
@@ -45,7 +50,7 @@ def optimize_base(util, grad, proj, x0, threshold, gamma=0.8, c=0.5):
 #     print(util(x0) - util(proj(x0)))
 #     print('util of the first point x0')
 #     print(util(x0))
-    
+
     x = proj(x0)
 
     for i in range(max_iterations):
@@ -63,12 +68,12 @@ def optimize_base(util, grad, proj, x0, threshold, gamma=0.8, c=0.5):
 
         if np.linalg.norm(s * d) < threshold:
             break
-        
+
         if util(x + s * d) - e_f > 0:
             x += s * d
         else:
             break
-        
+
     print('Done within %d iterations!' % i)
 
     return x
@@ -115,7 +120,7 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
     :type learn_end_date: datetime
     :return: optimized intensity with respect to parameters given
     """
-    
+
     if extra_opt is None:
         extra_opt = []
 
@@ -145,7 +150,7 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
         user.get_follower_weight(target)
         for target in user.followers()
         ])
-    
+
     if conn is None:
         followers_conn_prob = [
             np.array(target.tweet_list().sublist(learn_start_date, learn_end_date).
@@ -157,7 +162,7 @@ def learn_and_optimize(user, budget=None, upper_bounds=None,
             followers_conn_prob = [conn[target.user_id()] for target in user.followers()]
         else:
             followers_conn_prob = conn
-    
+
     print('upper bounds: ')
     print(upper_bounds)
     print('budget: ')

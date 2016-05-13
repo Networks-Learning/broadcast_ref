@@ -23,7 +23,7 @@ def get_projector_parameters(budget, upper_bounds):
     h = np.zeros(2 * n)
     h[n:2 * n] = upper_bounds
     h = matrix(h)
-    A = matrix(np.ones((1., n)))
+    A = matrix(np.ones((1, n)))
 
     return [P, G, h, A, matrix([budget])]
 
@@ -41,8 +41,8 @@ def projection(q, P, G, h, A, C):
     return np.reshape(sol['x'], len(sol['x']))
 
 
-def optimize_base(util, grad, proj, x0, threshold, gamma=0.8, c=0.5):
-    max_iterations = 666
+def optimize_base(util, grad, proj, x0, threshold, gamma=0.8, c=0.5, verbose=False, with_iter=False):
+    max_iterations = 50000
 #     print('difference before and after proj:')
 #     print(x0 - proj(x0))
 #     print(np.linalg.norm(x0 - proj(x0)))
@@ -74,25 +74,33 @@ def optimize_base(util, grad, proj, x0, threshold, gamma=0.8, c=0.5):
         else:
             break
 
-    # print('Done within %d iterations!' % i)
+    if verbose:
+        print('Done within %d iterations!' % i)
 
-    return x
+    if with_iter:
+        return x, i
+    else:
+        return x
 
 
-def optimize(util, util_grad, budget, upper_bounds, threshold, x0=None):
-    start = int(round(time.time() * 1000))
+def optimize(util, util_grad, budget, upper_bounds, threshold, x0=None, verbose=False, with_iter=False):
+    # start = int(round(time.time() * 1000))
     proj_params = get_projector_parameters(budget, upper_bounds)
 
     def proj(x):
         return projection(x, *proj_params)
 
     if sum(upper_bounds) <= budget:
-        print("obvious case")
-        return upper_bounds
+        if verbose:
+            print("obvious case")
+        if with_iter:
+            return upper_bounds, 0
+        else:
+            return upper_bounds
 
-    opt_rates = optimize_base(util, util_grad, proj, x0, threshold)
-    delta = int(round(time.time() * 1000)) - start
-    sys.stderr.write('Total time: %d' % delta)
+    opt_rates = optimize_base(util, util_grad, proj, x0, threshold, verbose=verbose, with_iter=with_iter)
+    # delta = int(round(time.time() * 1000)) - start
+    # sys.stderr.write('Total time: %d' % delta)
     return opt_rates
 
 

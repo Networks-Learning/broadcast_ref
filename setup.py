@@ -4,8 +4,8 @@ import numpy
 from Cython.Build import cythonize
 from setuptools import Extension
 
-extensions = [Extension("opt", ["broadcast/opt/*.pyx"]),
-              Extension("data", ["broadcast/data/*.pyx"])]
+extensions = [Extension("opt_utils", ["broadcast/opt/*.pyx"]),
+              Extension("data_utils", ["broadcast/data/*.pyx"])]
 
 setup(
     name='broadcast_ref',

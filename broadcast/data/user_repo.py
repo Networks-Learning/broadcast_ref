@@ -56,7 +56,7 @@ class HDFSUserRepository(UserRepository):
             if followee == excluded:
                 continue
             total_len += len(self.get_user_tweets(followee))
-            
+
         final_list = [0] * total_len
         ind = 0
         for followee in followees:
@@ -65,7 +65,7 @@ class HDFSUserRepository(UserRepository):
             lst = self.get_user_tweets(followee)
             final_list[ind:(ind+len(lst))] = lst[:]
             ind += len(lst)
-            
+
         final_list.sort()
         return final_list
 
@@ -74,6 +74,10 @@ class HDFSSQLiteUserRepository(SQLiteUserRepository, HDFSUserRepository):
     def __init__(self, hdfs_loader, conn):
         SQLiteUserRepository.__init__(self, conn)
         self._loader = hdfs_loader
+
+    def close(self):
+        self._conn.close()
+        # self._loader.close()
 
     def get_user_followees(self, user_id):
         return SQLiteUserRepository.get_user_followees(self, user_id)

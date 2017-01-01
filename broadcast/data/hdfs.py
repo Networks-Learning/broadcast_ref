@@ -1,5 +1,6 @@
 from __future__ import division, print_function, with_statement
 import h5py
+import logging
 
 
 def get_group(user_id):
@@ -14,7 +15,10 @@ class HDFSLoader:
         self.h5f = h5py.File(file_path, 'r')
 
     def __del__(self):
-        self.h5f.close()
+        try:
+            self.h5f.close()
+        except Exception as e:
+            logging.warning('Ignoring error during destruction: {}'.format(e))
 
     def get_data(self, user_id, data):
         try:

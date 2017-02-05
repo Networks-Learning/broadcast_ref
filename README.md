@@ -38,11 +38,11 @@ If the `numpy` header files are not found while importing the `broadcast.opt.opt
 
   1. Find the `numpy` header files location:
        
-       import numpy as np
-       np.get_include()
+         import numpy as np
+         np.get_include()
 
   2. Launch your `jupyter` notebook or `python` shell after exporting `CFLAGS`:
 
-       export CFLAGS="-I ${PATH_TO_NUMPY_INCLUDE} ${CFLAGS}"
+         export CFLAGS="-I ${PATH_TO_NUMPY_INCLUDE} ${CFLAGS}"
 
 

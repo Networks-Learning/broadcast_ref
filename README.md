@@ -45,4 +45,6 @@ If the `numpy` header files are not found while importing the `broadcast.opt.opt
 
          export CFLAGS="-I ${PATH_TO_NUMPY_INCLUDE} ${CFLAGS}"
 
+If you do not want to edit this particular package, then you can also execute `compile.sh` once to compile the packages. That should allow you to import the package elsewhere.
+
 

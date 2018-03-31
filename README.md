@@ -23,12 +23,6 @@ This package can be installed from the repository directly:
 pip install git+https://github.com/Networks-Learning/broadcast_ref.git@master#egg=broadcast_ref
 ```
 
-or, 
-
-```
-pip install git+https://github.com/Networks-Learning/broadcast_ref.git@py3#egg=broadcast_ref
-```
-
 After a successful installation, the module named `broadcast` should be available for import in a Python shell.
 
 

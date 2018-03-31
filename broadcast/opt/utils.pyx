@@ -264,8 +264,8 @@ cpdef np.ndarray gradient_top_one(np.ndarray lambda1, np.ndarray lambda2, np.nda
     cdef np.ndarray h = h_values(lambda1, lambda2, q)
     cdef np.ndarray dh_dc = h_hessian_values(lambda1, lambda2, h, q)
 
-    cdef int k
-    cdef double bk, ck, dtk, m, bm, cm, dtm
+    cdef int k, m
+    cdef double bk, ck, dtk, bm, cm, dtm
     for k in range(M):
         bk = lambda2[k]
         ck = lambda1[k]
